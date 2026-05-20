@@ -35,6 +35,8 @@ from services.data_fetcher import FundDataFetcher
 from services.notification import NotificationManager
 from ui.widgets.table_widget import FundTableWidget
 from ui.widgets.search_widget import FundSearchWidget
+from ui.widgets.portfolio_dashboard import PortfolioDashboard
+from ui.widgets.investment_calculator_dialog import InvestmentCalculatorDialog
 from utils.logger import logger
 
 matplotlib.use('Agg')
@@ -646,6 +648,14 @@ class FundMonitor(QMainWindow):
             "通知设置", "#8b5cf6", self.show_notification_settings)
         toolbar_layout.addWidget(settings_btn)
 
+        portfolio_btn = self.create_button(
+            "📊 投资组合分析", "#3b82f6", self.show_portfolio_dashboard)
+        toolbar_layout.addWidget(portfolio_btn)
+
+        calculator_btn = self.create_button(
+            "💰 定投计算器", "#10b981", self.show_investment_calculator)
+        toolbar_layout.addWidget(calculator_btn)
+
         content_layout.addWidget(toolbar_widget)
 
         table_widget = QWidget()
@@ -815,6 +825,63 @@ class FundMonitor(QMainWindow):
         """显示通知设置对话框"""
         dialog = NotificationSettingsDialog(self)
         dialog.exec()
+
+    def show_portfolio_dashboard(self):
+        """显示投资组合分析仪表盘"""
+        holdings_data = self._get_all_holdings_data()
+        
+        if not holdings_data:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.information(
+                self,
+                "提示",
+                "暂无持仓数据\n请先设置基金持仓信息（成本价和份额）"
+            )
+            return
+        
+        dialog = PortfolioDashboard(holdings_data, parent=self)
+        dialog.exec()
+
+    def show_investment_calculator(self):
+        """显示定投计算器对话框"""
+        dialog = InvestmentCalculatorDialog(parent=self)
+        dialog.exec()
+
+    def _get_all_holdings_data(self) -> List[Dict[str, Any]]:
+        """获取所有基金的持仓数据
+        
+        Returns:
+            持仓数据列表
+        """
+        holdings = []
+        
+        for code in self.monitored_codes:
+            cost_price, shares, current_value = self.get_fund_holdings_detail(code)
+            
+            if cost_price > 0 and shares > 0:
+                fund_info = self.fund_data.get(code, {})
+                
+                daily_profit = current_value * float(
+                    fund_info.get('gszzl', '0')
+                ) / 100 if fund_info else 0
+                
+                total_profit = current_value - (cost_price * shares)
+                dividend = self.get_fund_dividend(code)
+                total_profit += dividend
+                
+                holding = {
+                    'fund_code': code,
+                    'fund_name': fund_info.get('name', code),
+                    'cost_price': cost_price,
+                    'shares': shares,
+                    'current_value': current_value,
+                    'daily_profit': daily_profit,
+                    'total_profit': total_profit,
+                    'dividend': dividend
+                }
+                holdings.append(holding)
+        
+        return holdings
 
     def add_fund_from_search(self, code: str):
         """从搜索结果添加基金
