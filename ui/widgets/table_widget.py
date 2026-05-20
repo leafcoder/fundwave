@@ -7,11 +7,22 @@
 
 from __future__ import annotations
 
+import sys
+from typing import TYPE_CHECKING
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (QMenu, QTableWidget, QTableWidgetItem)
 
 from utils.logger import logger
+
+if TYPE_CHECKING:
+    from ui.main_window import FundMonitor
+else:
+    try:
+        from ui.main_window import FundMonitor
+    except ImportError:
+        FundMonitor = None  # 运行时延迟导入或使用字符串检查
 
 
 class PercentageItem(QTableWidgetItem):
@@ -156,11 +167,17 @@ class FundTableWidget(QTableWidget):
                 fund_code = code_item.text()
 
                 parent_widget = self.parent()
-                while parent_widget and not isinstance(
-                        parent_widget, FundMonitor):
+                # 安全地查找父级FundMonitor窗口
+                while parent_widget:
+                    # 方法1: 使用类型检查（如果FundMonitor已导入）
+                    if FundMonitor is not None and isinstance(parent_widget, FundMonitor):
+                        break
+                    # 方法2: 检查是否具有关键属性（更安全的运行时检查）
+                    elif hasattr(parent_widget, 'monitored_codes') and hasattr(parent_widget, 'remove_specific_fund'):
+                        break
                     parent_widget = parent_widget.parent()
 
-                if parent_widget and isinstance(parent_widget, FundMonitor):
+                if parent_widget and (hasattr(parent_widget, 'monitored_codes')):
                     is_monitored = fund_code in parent_widget.monitored_codes
 
                     menu = QMenu()

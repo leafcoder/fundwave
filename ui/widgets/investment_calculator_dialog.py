@@ -16,7 +16,7 @@ from matplotlib.figure import Figure
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont
-from PySide6.QtWidgets import (QComboBox, QDialog, QDoubleSpinBox,
+from PySide6.QtWidgets import (QComboBox, QDialog, QDoubleSpinBox, QFrame,
                                QGridLayout, QGroupBox, QHBoxLayout, QLabel,
                                QLineEdit, QPushButton, QScrollArea, QSpinBox,
                                QTabWidget, QVBoxLayout, QWidget)
