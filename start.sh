@@ -19,4 +19,4 @@ echo "🚀 正在启动基金监控系统..."
 echo ""
 
 # 启动程序
-python3 fund_monitor.py "$@"
+python3 main.py "$@"
