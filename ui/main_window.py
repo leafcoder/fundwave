@@ -19,24 +19,23 @@ import matplotlib.pyplot as plt
 import matplotlib.style as style
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-
-from PySide6.QtCore import QThread, QTimer, Signal, Qt
+from PySide6.QtCore import Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QIcon, QPixmap
 from PySide6.QtWidgets import (QApplication, QCheckBox, QDialog,
                                QDoubleSpinBox, QGridLayout, QGroupBox,
                                QHBoxLayout, QInputDialog, QLabel, QLineEdit,
                                QMainWindow, QMenu, QMessageBox, QPushButton,
-                               QStyle, QSystemTrayIcon, QTabWidget,
-                               QTableWidgetItem, QVBoxLayout, QWidget)
+                               QStyle, QSystemTrayIcon, QTableWidgetItem,
+                               QTabWidget, QVBoxLayout, QWidget)
 
 from config import config
 from models.database import DatabaseManager
 from services.data_fetcher import FundDataFetcher
 from services.notification import NotificationManager
-from ui.widgets.table_widget import FundTableWidget
-from ui.widgets.search_widget import FundSearchWidget
-from ui.widgets.portfolio_dashboard import PortfolioDashboard
 from ui.widgets.investment_calculator_dialog import InvestmentCalculatorDialog
+from ui.widgets.portfolio_dashboard import PortfolioDashboard
+from ui.widgets.search_widget import FundSearchWidget
+from ui.widgets.table_widget import FundTableWidget
 from utils.logger import logger
 
 matplotlib.use('Agg')
@@ -1737,8 +1736,8 @@ class FundHistoryChartWindow(QDialog):
 
     def generate_mock_data(self):
         """生成模拟历史数据"""
-        from datetime import timedelta
         import random
+        from datetime import timedelta
 
         dates = []
         values = []
@@ -1812,7 +1811,7 @@ class NotificationSettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("通知设置")
-        self.setFixedSize(600, 500)
+        self.setFixedSize(600, 560)
         self.setStyleSheet("""
             QDialog {
                 background: white;
@@ -1859,6 +1858,14 @@ class NotificationSettingsDialog(QDialog):
             "https://oapi.dingtalk.com/robot/send?access_token=...")
         webhook_layout.addWidget(self.dingtalk_webhook)
         dingtalk_layout.addLayout(webhook_layout)
+
+        secret_layout = QHBoxLayout()
+        secret_layout.addWidget(QLabel("加签密钥:"))
+        self.dingtalk_secret = QLineEdit()
+        self.dingtalk_secret.setPlaceholderText("SEC开头的密钥（选填，机器人安全设置中的加签密钥）")
+        self.dingtalk_secret.setEchoMode(QLineEdit.Password)
+        secret_layout.addWidget(self.dingtalk_secret)
+        dingtalk_layout.addLayout(secret_layout)
 
         dingtalk_group.setLayout(dingtalk_layout)
         layout.addWidget(dingtalk_group)
@@ -1946,6 +1953,7 @@ class NotificationSettingsDialog(QDialog):
             self.popup_enabled.setChecked(settings['popup_enabled'])
             self.dingtalk_enabled.setChecked(settings['dingtalk_enabled'])
             self.dingtalk_webhook.setText(settings['dingtalk_webhook'])
+            self.dingtalk_secret.setText(settings['dingtalk_secret'])
             self.rise_threshold.setValue(settings['rise_threshold'])
             self.fall_threshold.setValue(settings['fall_threshold'])
             self.profit_threshold.setValue(settings['profit_threshold'])
@@ -1962,6 +1970,7 @@ class NotificationSettingsDialog(QDialog):
                         SET popup_enabled = ?,
                             dingtalk_enabled = ?,
                             dingtalk_webhook = ?,
+                            dingtalk_secret = ?,
                             rise_threshold = ?,
                             fall_threshold = ?,
                             profit_threshold = ?,
@@ -1972,6 +1981,7 @@ class NotificationSettingsDialog(QDialog):
                         self.popup_enabled.isChecked(),
                         self.dingtalk_enabled.isChecked(),
                         self.dingtalk_webhook.text(),
+                        self.dingtalk_secret.text(),
                         self.rise_threshold.value(),
                         self.fall_threshold.value(),
                         self.profit_threshold.value(),

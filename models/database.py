@@ -130,6 +130,11 @@ class DatabaseManager:
                 )
             ''')
 
+            columns = [info[1] for info in cursor.execute("PRAGMA table_info(notification_settings)").fetchall()]
+            if 'dingtalk_secret' not in columns:
+                logger.info("数据库迁移：添加dingtalk_secret字段")
+                cursor.execute('ALTER TABLE notification_settings ADD COLUMN dingtalk_secret TEXT')
+
             cursor.execute('SELECT COUNT(*) FROM notification_settings')
             if cursor.fetchone()[0] == 0:
                 cursor.execute(

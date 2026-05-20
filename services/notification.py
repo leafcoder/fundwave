@@ -32,6 +32,7 @@ class NotificationManager:
                         'popup_enabled': bool(result[1]),
                         'dingtalk_enabled': bool(result[2]),
                         'dingtalk_webhook': result[3] or '',
+                        'dingtalk_secret': result[13] if len(result) > 13 else '',
                         'email_enabled': bool(result[4]),
                         'email_smtp_server': result[5] or '',
                         'email_sender': result[6] or '',
@@ -49,6 +50,7 @@ class NotificationManager:
             'popup_enabled': True,
             'dingtalk_enabled': False,
             'dingtalk_webhook': '',
+            'dingtalk_secret': '',
             'email_enabled': False,
             'email_smtp_server': '',
             'email_sender': '',
@@ -88,12 +90,15 @@ class NotificationManager:
             logger.error(f"发送弹窗通知失败: {e}")
 
     def send_dingtalk_notification(self, title: str, message: str):
-        """发送钉钉通知"""
+        """发送钉钉通知（支持加签验证）"""
         settings = self.get_notification_settings()
         if not settings['dingtalk_enabled']:
             return
 
-        if not settings['dingtalk_webhook']:
+        webhook = settings['dingtalk_webhook']
+        secret = settings['dingtalk_secret']
+
+        if not webhook:
             logger.warning("钉钉Webhook未配置")
             return
 
@@ -101,7 +106,13 @@ class NotificationManager:
             return
 
         try:
+            import base64
+            import hashlib
+            import hmac
+            import urllib.parse
             from datetime import datetime
+            from urllib.parse import parse_qs, urlparse
+
             data = {
                 "msgtype": "markdown",
                 "markdown": {
@@ -110,18 +121,51 @@ class NotificationManager:
                 }
             }
 
+            final_url = webhook
+
+            if secret:
+                timestamp = str(round(time.time() * 1000))
+                string_to_sign = f'{timestamp}\n{secret}'.encode('utf-8')
+                hmac_code = hmac.new(
+                    secret.encode('utf-8'),
+                    string_to_sign,
+                    digestmod=hashlib.sha256
+                ).digest()
+                sign = urllib.parse.quote_plus(base64.b64encode(hmac_code))
+
+                parsed_url = urlparse(webhook)
+                query_params = parse_qs(parsed_url.query)
+                access_token = query_params.get('access_token', [''])[0]
+
+                new_query = f"access_token={access_token}&timestamp={timestamp}&sign={sign}"
+                final_url = f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}?{new_query}"
+                logger.info(f"使用加签模式发送钉钉通知")
+
             response = requests.post(
-                settings['dingtalk_webhook'],
+                final_url,
                 json=data,
+                headers={'Content-Type': 'application/json'},
                 timeout=10
             )
 
             if response.status_code == 200:
-                logger.info(f"钉钉通知发送成功: {title}")
+                resp_json = response.json()
+                if resp_json.get('errcode') == 0:
+                    logger.info(f"✅ 钉钉通知发送成功: {title}")
+                else:
+                    errcode = resp_json.get('errcode', 'unknown')
+                    errmsg = resp_json.get('errmsg', '未知错误')
+                    logger.error(f"❌ 钉钉API错误 [{errcode}]: {errmsg}")
+                    if errcode == 310000:
+                        logger.error("⚠️ 签名验证失败！请检查：")
+                        logger.error("   1. 加签密钥是否正确复制（无多余空格）")
+                        logger.error("   2. 密钥是否与钉钉机器人设置页面一致")
+                        logger.error("   3. 系统时间是否准确")
             else:
-                logger.error(f"钉钉通知发送失败: {response.text}")
+                logger.error(f"❌ 钉钉请求失败: HTTP {response.status_code}, 响应: {response.text}")
+
         except Exception as e:
-            logger.error(f"发送钉钉通知失败: {e}")
+            logger.error(f"❌ 发送钉钉通知异常: {e}")
 
     def check_and_notify(self, fund_data: Dict,
                          total_profit: float, daily_profit: float):
