@@ -25,14 +25,22 @@ class NotificationManager:
         """获取通知设置"""
         try:
             with self.db_manager.get_cursor() as cursor:
-                cursor.execute('SELECT * FROM notification_settings LIMIT 1')
+                # 使用明确的列名查询，避免索引错误（dingtalk_secret在索引13）
+                cursor.execute('''
+                    SELECT id, popup_enabled, dingtalk_enabled, dingtalk_webhook,
+                           email_enabled, email_smtp_server, email_sender,
+                           email_password, email_receiver, rise_threshold,
+                           fall_threshold, profit_threshold, loss_threshold,
+                           dingtalk_secret
+                    FROM notification_settings LIMIT 1
+                ''')
                 result = cursor.fetchone()
                 if result:
                     return {
                         'popup_enabled': bool(result[1]),
                         'dingtalk_enabled': bool(result[2]),
                         'dingtalk_webhook': result[3] or '',
-                        'dingtalk_secret': result[13] if len(result) > 13 else '',
+                        'dingtalk_secret': result[13] or '',  # ✅ 修正：索引13是dingtalk_secret
                         'email_enabled': bool(result[4]),
                         'email_smtp_server': result[5] or '',
                         'email_sender': result[6] or '',
@@ -193,5 +201,6 @@ class NotificationManager:
 
         elif total_profit <= settings['loss_threshold']:
             message = f"累计亏损达到 ¥{abs(total_profit):.2f}"
-            self.send_popup_notification("亏损预警", message)
-            self.send_dingtalk_notification("⚠️ 亏损预警", message)
+            self.send_popup_notification("⚠️ 亏损预警", message)
+            # 累计亏损不发送钉钉通知（仅保留本地弹窗提醒）
+            # self.send_dingtalk_notification("⚠️ 亏损预警", message)

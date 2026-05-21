@@ -74,6 +74,8 @@ class DatabaseManager:
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS settings (
                     id INTEGER PRIMARY KEY,
+                    key TEXT UNIQUE,
+                    value TEXT,
                     refresh_interval INTEGER DEFAULT 60,
                     auto_refresh_enabled BOOLEAN DEFAULT 1,
                     total_profit REAL DEFAULT 0.0
@@ -239,6 +241,26 @@ class DatabaseManager:
                 cursor.execute('DROP TABLE fund_holdings')
                 cursor.execute(
                     'ALTER TABLE fund_holdings_new RENAME TO fund_holdings')
+
+            # 迁移settings表：添加key和value列
+            cursor.execute("PRAGMA table_info(settings)")
+            settings_columns = {row[1] for row in cursor.fetchall()}
+
+            if 'key' not in settings_columns or 'value' not in settings_columns:
+                logger.info("迁移数据库: 添加 settings.key 和 settings.value 字段")
+                try:
+                    cursor.execute('ALTER TABLE settings ADD COLUMN key TEXT')
+                    cursor.execute('ALTER TABLE settings ADD COLUMN value TEXT')
+                    
+                    # 将现有设置转换为key-value格式
+                    cursor.execute('''
+                        UPDATE settings 
+                        SET key = 'refresh_interval', value = CAST(refresh_interval AS TEXT)
+                        WHERE key IS NULL
+                    ''')
+                    logger.info("成功添加settings表的key和value列")
+                except Exception as alter_error:
+                    logger.warning(f"添加settings表列失败（可能已存在）: {alter_error}")
 
         except Exception as e:
             logger.warning(f"数据库迁移检查失败（可能是新数据库）: {e}")

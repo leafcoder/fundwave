@@ -14,6 +14,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QMenu, QTableWidget, QTableWidgetItem
 
+from ui.theme.professional_theme import ProfessionalTheme
 from utils.logger import logger
 
 if TYPE_CHECKING:
@@ -68,65 +69,56 @@ class FundTableWidget(QTableWidget):
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
         self.cellDoubleClicked.connect(self.on_cell_double_clicked)
-        self.setStyleSheet("""
-            QTableWidget {
-                background: #ffffff;
-                alternate-background-color: #f8fafc;
-                gridline-color: transparent;
+
+        # 应用专业主题样式
+        self.setStyleSheet(f"""
+            QTableWidget {{
+                background: {ProfessionalTheme.BG_PRIMARY};
+                alternate-background-color: {ProfessionalTheme.BG_SECONDARY};
+                gridline-color: {ProfessionalTheme.BORDER_LIGHT};
                 border: none;
-                border-radius: 8px;
-                font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
-                font-size: 13px;
-            }
-            QTableWidget::item {
-                padding: 8px 12px;
-                border-bottom: 1px solid #f1f5f9;
-                background: #ffffff;
-            }
-            QTableWidget::item:alternate {
-                background: #f8fafc;
-            }
-            QTableWidget::item:selected {
-                background: #3b82f6;
+                border-radius: {ProfessionalTheme.RADIUS_MEDIUM}px;
+                font-family: {ProfessionalTheme.FONT_FAMILY};
+                font-size: {ProfessionalTheme.FONT_SIZE_SMALL}px;
+                selection-background-color: {ProfessionalTheme.PRIMARY_BG};
+                selection-color: {ProfessionalTheme.PRIMARY_DARK};
+            }}
+            QTableWidget::item {{
+                padding: {ProfessionalTheme.SPACING_SM}px {ProfessionalTheme.SPACING_MD}px;
+                border-bottom: 1px solid {ProfessionalTheme.BORDER_LIGHT};
+                background: {ProfessionalTheme.BG_PRIMARY};
+            }}
+            QTableWidget::item:alternate {{
+                background: {ProfessionalTheme.BG_SECONDARY};
+            }}
+            QTableWidget::item:selected {{
+                background: {ProfessionalTheme.PRIMARY_BG};
+                color: {ProfessionalTheme.PRIMARY_DARK};
+            }}
+            QTableWidget::item:hover {{
+                background: {ProfessionalTheme.PRIMARY_BG};
+                color: {ProfessionalTheme.PRIMARY_COLOR};
+            }}
+            QTableWidget::item:selected:hover {{
+                background: {ProfessionalTheme.PRIMARY_LIGHT};
                 color: white;
-            }
-            QTableWidget::item:hover {
-                background: #e0e7ff;
-                color: #1e293b;
-            }
-            QTableWidget::item:selected:hover {
-                background: #2563eb;
-                color: white;
-            }
-            QHeaderView::section {
-                background: #f8fafc;
-                color: #475569;
-                padding: 12px 8px;
+            }}
+            QHeaderView::section {{
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 {ProfessionalTheme.BG_SECONDARY}, stop:1 {ProfessionalTheme.BORDER_LIGHT});
+                color: {ProfessionalTheme.TEXT_SECONDARY};
+                padding: {ProfessionalTheme.SPACING_MD}px {ProfessionalTheme.SPACING_SM}px;
                 border: none;
-                border-bottom: 2px solid #e2e8f0;
-                font-weight: 600;
-                font-size: 13px;
-            }
-            QHeaderView::section:hover {
-                background: #e2e8f0;
-                color: #1e293b;
-            }
-            QScrollBar:vertical {
-                background: #f8fafc;
-                width: 8px;
-                border-radius: 4px;
-            }
-            QScrollBar::handle:vertical {
-                background: #cbd5e1;
-                border-radius: 4px;
-                min-height: 20px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background: #94a3b8;
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-                height: 0px;
-            }
+                border-right: 1px solid {ProfessionalTheme.BORDER_LIGHT};
+                border-bottom: 2px solid {ProfessionalTheme.BORDER_COLOR};
+                font-weight: {ProfessionalTheme.FONT_WEIGHT_SEMI_BOLD};
+                font-size: {ProfessionalTheme.FONT_SIZE_SMALL}px;
+            }}
+            QHeaderView::section:hover {{
+                background: {ProfessionalTheme.BG_HOVER};
+                color: {ProfessionalTheme.TEXT_PRIMARY};
+            }}
+            {ProfessionalTheme.get_scrollbar_style()}
         """)
         header = self.horizontalHeader()
         header.setSectionResizeMode(0, header.ResizeMode.Interactive)
@@ -164,7 +156,7 @@ class FundTableWidget(QTableWidget):
             code_item = self.item(row, 0)
             if code_item:
                 fund_code = code_item.text()
-                
+
                 parent_widget = self.parent()
                 while parent_widget:
                     if FundMonitor is not None and isinstance(parent_widget, FundMonitor):
@@ -175,7 +167,7 @@ class FundTableWidget(QTableWidget):
 
                 if parent_widget and hasattr(parent_widget, 'show_fund_detail'):
                     parent_widget.show_fund_detail(fund_code)
-                    
+
         except Exception as e:
             logger.error(f"双击打开基金详情失败: {e}")
 
@@ -369,7 +361,7 @@ class FundTableWidget(QTableWidget):
                 profit_percentage = (total_profit_loss / position_cost) * 100
             else:
                 profit_percentage = 0.0
-            
+
             profit_pct_item = PercentageItem(f"{profit_percentage:.2f}%")
             if profit_percentage > 0:
                 profit_pct_item.setForeground(QColor(255, 0, 0))
@@ -388,4 +380,3 @@ class FundTableWidget(QTableWidget):
         if self.parent_monitor:
             self.parent_monitor.update_total_profit(
                 total_profit, total_daily_profit, total_position_cost, total_current_value)
-
