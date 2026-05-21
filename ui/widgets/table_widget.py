@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import (QMenu, QTableWidget, QTableWidgetItem)
+from PySide6.QtWidgets import QMenu, QTableWidget, QTableWidgetItem
 
 from utils.logger import logger
 
@@ -188,6 +188,7 @@ class FundTableWidget(QTableWidget):
                         cost_price_action = menu.addAction("设置持仓成本价")
                         shares_action = menu.addAction("设置持有份额")
                         dividend_action = menu.addAction("记录分红")
+                        dividend_history_action = menu.addAction("查看分红记录")
 
                         action = menu.exec(self.mapToGlobal(position))
 
@@ -199,6 +200,8 @@ class FundTableWidget(QTableWidget):
                             parent_widget.set_fund_shares(fund_code)
                         elif action == dividend_action:
                             parent_widget.record_dividend(fund_code)
+                        elif action == dividend_history_action:
+                            parent_widget.show_dividend_history(fund_code)
                     else:
                         add_action = menu.addAction("添加基金监控")
 
@@ -208,10 +211,14 @@ class FundTableWidget(QTableWidget):
                             parent_widget.add_fund_to_monitor(fund_code)
         else:
             parent_widget = self.parent()
-            while parent_widget and not isinstance(parent_widget, FundMonitor):
+            while parent_widget:
+                if FundMonitor is not None and isinstance(parent_widget, FundMonitor):
+                    break
+                elif hasattr(parent_widget, 'monitored_codes') and hasattr(parent_widget, 'remove_specific_fund'):
+                    break
                 parent_widget = parent_widget.parent()
 
-            if parent_widget and isinstance(parent_widget, FundMonitor):
+            if parent_widget:
                 menu = QMenu()
                 add_new_fund_action = menu.addAction("添加新基金")
                 menu.addSeparator()

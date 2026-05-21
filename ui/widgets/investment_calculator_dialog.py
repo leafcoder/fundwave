@@ -13,7 +13,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (QComboBox, QDialog, QDoubleSpinBox, QFrame,
@@ -21,12 +20,10 @@ from PySide6.QtWidgets import (QComboBox, QDialog, QDoubleSpinBox, QFrame,
                                QLineEdit, QPushButton, QScrollArea, QSpinBox,
                                QTabWidget, QVBoxLayout, QWidget)
 
-from services.investment_calculator import (
-    InvestmentCalculator,
-    InvestmentResult,
-    InvestmentStrategy,
-    PREDEFINED_STRATEGIES,
-)
+from services.investment_calculator import (PREDEFINED_STRATEGIES,
+                                            InvestmentCalculator,
+                                            InvestmentResult,
+                                            InvestmentStrategy)
 
 matplotlib.use('Agg')
 plt.rcParams['font.sans-serif'] = ['WenQuanYi Micro Hei', 'SimHei', 'DejaVu Sans']
@@ -658,7 +655,21 @@ class InvestmentCalculatorDialog(QDialog):
     
     def connect_signals(self):
         """连接信号和槽"""
-        pass
+        try:
+            if hasattr(self, 'monthly_amount_input'):
+                self.monthly_amount_input.valueChanged.connect(self.calculate_basic)
+                self.expected_return_input.valueChanged.connect(self.calculate_basic)
+                self.years_input.valueChanged.connect(self.calculate_basic)
+                self.inflation_rate_input.valueChanged.connect(self.calculate_basic)
+
+                from utils.logger import logger
+                logger.info("定投计算器：已连接基本计算信号")
+
+            self.calculate_basic()
+
+        except Exception as e:
+            from utils.logger import logger
+            logger.error(f"连接定投计算器信号失败: {e}")
     
     def calculate_basic(self):
         """执行基本定投计算"""

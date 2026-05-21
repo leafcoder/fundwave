@@ -32,6 +32,7 @@ from config import config
 from models.database import DatabaseManager
 from services.data_fetcher import FundDataFetcher
 from services.notification import NotificationManager
+from ui.widgets.dividend_history_dialog import DividendHistoryDialog
 from ui.widgets.investment_calculator_dialog import InvestmentCalculatorDialog
 from ui.widgets.portfolio_dashboard import PortfolioDashboard
 from ui.widgets.search_widget import FundSearchWidget
@@ -195,14 +196,26 @@ class FundMonitor(QMainWindow):
 
     def on_tray_icon_activated(self, reason):
         """处理托盘图标激活事件"""
+        logger.debug(f"托盘图标被激活，原因: {reason}")
+
         if reason == QSystemTrayIcon.DoubleClick:
+            logger.info("双击托盘图标 → 显示主界面")
             self.show_window()
+        elif reason == QSystemTrayIcon.Trigger:
+            logger.debug("单击托盘图标")
 
     def show_window(self):
         """显示主窗口"""
-        self.show()
+        logger.info("正在显示主窗口...")
+
+        if self.isMinimized():
+            self.showNormal()
+        else:
+            self.show()
+
         self.raise_()
         self.activateWindow()
+        self.setWindowTitle("智能基金监控系统")
 
     def quit_application(self):
         """退出应用程序"""
@@ -469,8 +482,13 @@ class FundMonitor(QMainWindow):
         self.profit_eye_btn.clicked.connect(self.toggle_profit_visibility)
         profit_layout.addWidget(self.profit_eye_btn)
 
-        self.profit_visible = True
         self.profit_real_value = 0.0
+
+        if not getattr(self, 'profit_visible', True):
+            self.total_profit_label.setText("累计盈亏: ¥****")
+            self.profit_eye_btn.setText("🔒")
+        else:
+            self.profit_eye_btn.setText("👁")
 
         header_layout.addLayout(profit_layout)
 
@@ -1249,6 +1267,31 @@ class FundMonitor(QMainWindow):
             except Exception as e:
                 logger.error(f"记录分红失败: {e}")
                 QMessageBox.critical(self, "错误", f"记录分红失败: {str(e)}")
+
+    def show_dividend_history(self, fund_code: str):
+        """显示基金分红历史记录
+
+        Args:
+            fund_code: 基金代码
+        """
+        try:
+            fund_name = ""
+            if hasattr(self, 'fund_data') and fund_code in self.fund_data:
+                fund_name = self.fund_data[fund_code].get('name', '')
+
+            dialog = DividendHistoryDialog(
+                parent=self,
+                fund_code=fund_code,
+                fund_name=fund_name
+            )
+            dialog.exec()
+
+            self.update_data_async()
+            logger.info(f"查看基金{fund_code}({fund_name})的分红历史")
+
+        except Exception as e:
+            logger.error(f"显示分红历史失败: {e}")
+            QMessageBox.critical(self, "错误", f"显示分红历史失败: {str(e)}")
 
     def update_fund_holdings(self, fund_code: str, amount: float) -> bool:
         """更新基金持有金额
