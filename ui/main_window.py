@@ -745,6 +745,8 @@ class FundMonitor(QMainWindow):
             return btn
 
         btn = QPushButton(text)
+        btn.setMinimumHeight(36)
+        btn.setMinimumWidth(100)
         btn.setStyleSheet(f"""
             QPushButton {{
                 background: {color};
