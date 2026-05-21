@@ -67,6 +67,7 @@ class FundTableWidget(QTableWidget):
         self.setSelectionBehavior(QTableWidget.SelectRows)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
+        self.cellDoubleClicked.connect(self.on_cell_double_clicked)
         self.setStyleSheet("""
             QTableWidget {
                 background: #ffffff;
@@ -157,6 +158,27 @@ class FundTableWidget(QTableWidget):
             elif i == 12:
                 self.setColumnWidth(i, 100)
 
+    def on_cell_double_clicked(self, row: int, column: int):
+        """处理单元格双击事件，打开基金详情"""
+        try:
+            code_item = self.item(row, 0)
+            if code_item:
+                fund_code = code_item.text()
+                
+                parent_widget = self.parent()
+                while parent_widget:
+                    if FundMonitor is not None and isinstance(parent_widget, FundMonitor):
+                        break
+                    elif hasattr(parent_widget, 'monitored_codes') and hasattr(parent_widget, 'show_fund_detail'):
+                        break
+                    parent_widget = parent_widget.parent()
+
+                if parent_widget and hasattr(parent_widget, 'show_fund_detail'):
+                    parent_widget.show_fund_detail(fund_code)
+                    
+        except Exception as e:
+            logger.error(f"双击打开基金详情失败: {e}")
+
     def show_context_menu(self, position):
         """显示右键菜单"""
         item = self.itemAt(position)
@@ -189,6 +211,7 @@ class FundTableWidget(QTableWidget):
                         shares_action = menu.addAction("设置持有份额")
                         dividend_action = menu.addAction("记录分红")
                         dividend_history_action = menu.addAction("查看分红记录")
+                        fund_detail_action = menu.addAction("📊 查看基金详情")
 
                         action = menu.exec(self.mapToGlobal(position))
 
@@ -202,6 +225,8 @@ class FundTableWidget(QTableWidget):
                             parent_widget.record_dividend(fund_code)
                         elif action == dividend_history_action:
                             parent_widget.show_dividend_history(fund_code)
+                        elif action == fund_detail_action:
+                            parent_widget.show_fund_detail(fund_code)
                     else:
                         add_action = menu.addAction("添加基金监控")
 

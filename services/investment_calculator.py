@@ -19,12 +19,16 @@ from utils.logger import logger
 class InvestmentResult:
     """投资结果数据"""
     total_principal: float  # 本金总额
-    final_amount: float  # 最终资产
-    total_profit: float  # 总收益
-    profit_percentage: float  # 总收益率
+    final_amount: float  # 最终资产（名义值）
+    total_profit: float  # 总收益（名义值）
+    profit_percentage: float  # 总收益率（名义值）
     annualized_return: float  # 年化收益率
     expected_return: float = 0.0  # 预期年化收益率（输入参数）
-    
+    inflation_rate: float = 0.03  # 通胀率
+    inflation_adjusted_value: float = 0.0  # 通胀调整后的购买力
+    real_profit: float = 0.0  # 实际收益（扣除通胀）
+    real_return_rate: float = 0.0  # 实际收益率（扣除通胀）
+
     monthly_data: List[Dict[str, float]] = field(default_factory=list)  # 月度数据
     summary_text: str = ""  # 摘要文本
 
@@ -129,7 +133,18 @@ class InvestmentCalculator:
         
         # 实际收益率（扣除通胀后）
         real_profit_pct = profit_percentage - (inflation_rate * years)
-        
+
+        # 计算通胀调整后的购买力
+        # 公式：实际购买力 = 最终资产 / (1 + 通胀率)^年限
+        inflation_factor = (1 + inflation_rate) ** years
+        inflation_adjusted_value = final_amount / inflation_factor if inflation_factor > 0 else final_amount
+
+        # 实际收益（扣除通胀）
+        real_profit = inflation_adjusted_value - total_principal
+
+        # 实际收益率
+        real_return_rate = (real_profit / total_principal * 100) if total_principal > 0 else 0
+
         result = InvestmentResult(
             total_principal=round(total_principal, 2),
             final_amount=round(final_amount, 2),
@@ -137,6 +152,10 @@ class InvestmentCalculator:
             profit_percentage=round(profit_percentage, 2),
             annualized_return=round(annualized_return, 2),
             expected_return=expected_return,
+            inflation_rate=inflation_rate,
+            inflation_adjusted_value=round(inflation_adjusted_value, 2),
+            real_profit=round(real_profit, 2),
+            real_return_rate=round(real_return_rate, 2),
             monthly_data=monthly_data
         )
         

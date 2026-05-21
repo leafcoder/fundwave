@@ -266,6 +266,8 @@ class InvestmentCalculatorDialog(QDialog):
             ("最终资产", "final_value", "#059669"),
             ("总收益", "profit_value", "#dc2626"),
             ("总收益率", "return_pct", "#d97706"),
+            ("购买力等值", "inflation_adjusted", "#8b5cf6"),
+            ("实际收益率", "real_return", "#0ea5e9"),
         ]
         
         self.result_labels = {}
@@ -698,12 +700,18 @@ class InvestmentCalculatorDialog(QDialog):
         profit_color = "#dc2626" if result.total_profit >= 0 else "#10b981"
         profit_sign = "+" if result.total_profit >= 0 else ""
         pct_sign = "+" if result.profit_percentage >= 0 else ""
-        
+
         self.result_labels['principal_value'].setText(f"¥{result.total_principal:,.2f}")
         self.result_labels['final_value'].setText(f"¥{result.final_amount:,.2f}")
         self.result_labels['profit_value'].setText(f"{profit_sign}¥{result.total_profit:,.2f}")
         self.result_labels['return_pct'].setText(f"{pct_sign}{result.profit_percentage:.2f}%")
-        
+
+        # 通胀调整后的数据
+        real_profit_sign = "+" if result.real_profit >= 0 else ""
+        real_pct_sign = "+" if result.real_return_rate >= 0 else ""
+        self.result_labels['inflation_adjusted'].setText(f"¥{result.inflation_adjusted_value:,.2f}")
+        self.result_labels['real_return'].setText(f"{real_pct_sign}{result.real_return_rate:.2f}%")
+
         if result.summary_text:
             self.detail_text.setText(result.summary_text.strip())
     

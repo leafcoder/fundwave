@@ -33,6 +33,7 @@ from models.database import DatabaseManager
 from services.data_fetcher import FundDataFetcher
 from services.notification import NotificationManager
 from ui.widgets.dividend_history_dialog import DividendHistoryDialog
+from ui.widgets.fund_detail_dialog import FundDetailDialog
 from ui.widgets.investment_calculator_dialog import InvestmentCalculatorDialog
 from ui.widgets.portfolio_dashboard import PortfolioDashboard
 from ui.widgets.search_widget import FundSearchWidget
@@ -1294,6 +1295,30 @@ class FundMonitor(QMainWindow):
         except Exception as e:
             logger.error(f"显示分红历史失败: {e}")
             QMessageBox.critical(self, "错误", f"显示分红历史失败: {str(e)}")
+
+    def show_fund_detail(self, fund_code: str):
+        """显示基金详情页面
+
+        Args:
+            fund_code: 基金代码
+        """
+        try:
+            fund_name = ""
+            if hasattr(self, 'fund_data') and fund_code in self.fund_data:
+                fund_name = self.fund_data[fund_code].get('name', '')
+
+            dialog = FundDetailDialog(
+                parent=self,
+                fund_code=fund_code,
+                fund_name=fund_name
+            )
+            dialog.exec()
+
+            logger.info(f"查看基金{fund_code}({fund_name})的详情")
+
+        except Exception as e:
+            logger.error(f"显示基金详情失败: {e}")
+            QMessageBox.critical(self, "错误", f"显示基金详情失败: {str(e)}")
 
     def update_fund_holdings(self, fund_code: str, amount: float) -> bool:
         """更新基金持有金额
