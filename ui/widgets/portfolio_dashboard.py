@@ -231,7 +231,7 @@ class PieChartWidget(QWidget):
         title_layout.addWidget(title_icon)
         title_layout.addWidget(title_label)
         title_layout.addStretch()
-        layout.addLayout(title_bar)
+        layout.addWidget(title_bar)
 
         # Matplotlib图表区域
         self.figure = Figure(figsize=(6, 5), dpi=120)
@@ -338,7 +338,7 @@ class BarChartWidget(QWidget):
         title_layout.addWidget(title_icon)
         title_layout.addWidget(title_label)
         title_layout.addStretch()
-        layout.addLayout(title_bar)
+        layout.addWidget(title_bar)
 
         # Matplotlib图表区域
         self.figure = Figure(figsize=(7, 5), dpi=120)
