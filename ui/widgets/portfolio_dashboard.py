@@ -668,7 +668,7 @@ class PortfolioDashboard(QDialog):
         """加载并展示数据"""
         try:
             # 分析组合数据
-            self.report = self.analyzer.generate_report(self.portfolio_data)
+            self.report = self.analyzer.analyze_portfolio(self.portfolio_data)
 
             if not self.report:
                 return
@@ -677,19 +677,19 @@ class PortfolioDashboard(QDialog):
             self.metric_cards['total_assets'].update_value(
                 self.report.total_assets)
             self.metric_cards['total_profit'].update_value(
-                self.report.total_profit_loss)
+                self.report.total_profit)
             self.metric_cards['daily_profit'].update_value(
-                self.report.daily_profit_loss)
+                self.report.daily_profit)
             self.metric_cards['return_rate'].update_value(
-                self.report.total_return * 100)
+                self.report.profit_percentage)
 
             # 更新饼图
             if hasattr(self, 'pie_chart') and self.report.allocations:
                 self.pie_chart.update_chart(self.report.allocations)
 
             # 更新柱状图
-            if hasattr(self, 'bar_chart') and self.report.holdings:
-                self.bar_chart.update_chart(self.report.holdings)
+            if hasattr(self, 'bar_chart') and self.report.top_holdings:
+                self.bar_chart.update_chart(self.report.top_holdings)
 
         except Exception as e:
             from utils.logger import logger
