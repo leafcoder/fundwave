@@ -61,6 +61,7 @@ class DataUpdateThread(QThread):
 
     def run(self):
         try:
+            logger.info(f"数据更新线程启动，开始获取 {len(self.codes)} 只基金数据")
             fund_data = {}
             for code in self.codes:
                 if not self._is_running:
@@ -69,9 +70,13 @@ class DataUpdateThread(QThread):
                 if fund:
                     fund_data[code] = fund
             if self._is_running:
+                logger.info(f"数据更新完成，成功获取 {len(fund_data)} 只基金数据")
                 self.data_updated.emit(fund_data)
+            else:
+                logger.info("数据更新线程被停止")
         except Exception as e:
             if self._is_running:
+                logger.error(f"数据更新失败: {e}")
                 self.error_occurred.emit(str(e))
 
     def stop(self):
@@ -855,22 +860,28 @@ class FundMonitor(QMainWindow):
     def setup_timers(self):
         """设置定时器"""
         refresh_interval, auto_refresh_enabled = self.get_settings()
+        logger.info(f"设置定时器: 刷新间隔={refresh_interval}秒, 自动刷新={'启用' if auto_refresh_enabled else '禁用'}")
+        
         self.refresh_timer = QTimer()
         self.refresh_timer.timeout.connect(self.update_data_async)
         self.refresh_timer.start(refresh_interval * 1000)
 
         if not auto_refresh_enabled:
             self.refresh_timer.stop()
+            logger.info("自动刷新已禁用，定时器已停止")
 
     def update_data_async(self):
         """异步更新数据"""
+        logger.debug(f"定时器触发，开始更新数据，监控基金数: {len(self.monitored_codes)}")
         if hasattr(self, 'update_thread') and self.update_thread.isRunning():
+            logger.debug("数据更新线程正在运行，跳过本次更新")
             return
 
         self.update_thread = DataUpdateThread(self.monitored_codes)
         self.update_thread.data_updated.connect(self.on_data_updated)
         self.update_thread.error_occurred.connect(self.on_error)
         self.update_thread.start()
+        logger.debug(f"启动数据更新线程，基金代码: {self.monitored_codes}")
 
     def on_data_updated(self, fund_data):
         """数据更新完成"""
