@@ -18,10 +18,9 @@ import json
 import math
 import random
 import re
-import statistics
 import time
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import requests
@@ -175,6 +174,11 @@ class FundDataService:
                 'scale': '--',
                 'establish_date': '--'
             })
+            result['data_source'] = 'fallback'  # 标记为备用数据
+
+        # 如果没有设置数据来源，标记为真实API
+        if 'data_source' not in result:
+            result['data_source'] = 'real_api'
 
         return result
 
@@ -226,16 +230,20 @@ class FundDataService:
                                 'nav': round(nav_value, 4)
                             })
 
-                    logger.info(f"成功获取基金{fund_code}历史净值: {len(nav_data)}条")
+                    logger.info(f"✅ 成功获取基金{fund_code}历史净值: {len(nav_data)}条 (数据源: 东方财富API)")
                     return nav_data
 
             # 如果东方财富失败，尝试天天基金备用接口
-            logger.warning("东方财富API失败，尝试备用接口...")
+            logger.warning("⚠️ 东方财富API失败，尝试备用接口...")
             nav_data = self._get_history_from_ttjj(fund_code, days)
+            if nav_data:
+                logger.info(f"✅ 成功获取基金{fund_code}历史净值: {len(nav_data)}条 (数据源: 天天基金备用)")
+                return nav_data
+            else:
+                logger.error("❌ 备用接口也失败，返回空数据")
 
         except Exception as e:
-            logger.error(f"获取基金{fund_code}历史净值失败: {e}")
-            nav_data = self._generate_realistic_mock_data(fund_code, days)
+            logger.error(f"❌ 获取基金{fund_code}历史净值失败: {e}")
 
         return nav_data
 
@@ -329,10 +337,17 @@ class FundDataService:
                         elif '现金' in asset_type or '银行存款' in asset_type:
                             result['cash_percent'] = percent
 
+            # 标记数据来源
+            if result['holdings']:
+                result['data_source'] = 'real_api'
+                logger.info(f"✅ 成功获取基金{fund_code}持仓: {result['total_holdings']}只股票")
+            else:
+                result['data_source'] = 'empty'
+                logger.warning("⚠️ 未获取到持仓数据")
+
         except Exception as e:
-            logger.error(f"获取基金{fund_code}持仓失败: {e}")
-            # 使用模拟数据作为降级方案
-            result = self._generate_mock_holdings(fund_code)
+            logger.error(f"❌ 获取基金{fund_code}持仓失败: {e}")
+            result['data_source'] = 'failed'
 
         # 确保各项比例合理
         remaining = 100 - result['stock_percent'] - result['bond_percent']
@@ -453,7 +468,7 @@ class FundDataService:
             metrics['alpha'] = metrics['annualized_return'] - expected_return
 
             logger.info(f"风险指标计算完成: Sharpe={metrics['sharpe_ratio']:.2f}, "
-                       f"MaxDD={metrics['max_drawdown']:.2%}")
+                        f"MaxDD={metrics['max_drawdown']:.2%}")
 
         except Exception as e:
             logger.error(f"计算风险指标失败: {e}")
@@ -523,7 +538,6 @@ class FundDataService:
 
         except Exception as e:
             logger.error(f"获取同类基金对比失败: {e}")
-            peers = self._generate_peer_comparison(fund_code)
 
         return peers
 
@@ -535,7 +549,7 @@ class FundDataService:
 
         try:
             # 天天基金历史净值页面
-            url = f"http://fund.eastmoney.com/f10/F10DataApi.aspx"
+            url = "http://fund.eastmoney.com/f10/F10DataApi.aspx"
             params = {
                 'type': 'LSJZ',
                 'code': fund_code,
@@ -550,7 +564,6 @@ class FundDataService:
 
             if response.status_code == 200:
                 # 解析HTML表格
-                import re
                 pattern = r'<td[^>]*>([^<]+)</td>'
                 matches = re.findall(pattern, response.text)
 

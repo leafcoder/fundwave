@@ -31,9 +31,15 @@ class PercentageItem(QTableWidgetItem):
 
     def __lt__(self, other):
         try:
-            return float(
-                self.text().strip('%')) < float(
-                other.text().strip('%'))
+            # 移除箭头符号（↑/↓）、百分号、空格，然后转换为浮点数
+            def parse_percentage(text):
+                text = text.replace('↑', '').replace('↓', '').replace('%', '').strip()
+                # 处理 "+X.XX" 格式（去掉加号）
+                if text.startswith('+'):
+                    text = text[1:]
+                return float(text)
+
+            return parse_percentage(self.text()) < parse_percentage(other.text())
         except ValueError:
             return super().__lt__(other)
 
@@ -58,10 +64,11 @@ class FundTableWidget(QTableWidget):
         self.fund_history = {}
 
     def setup_ui(self):
-        self.setColumnCount(14)
+        """设置表格UI - 参考天天基金、蚂蚁财富等同类软件优化"""
+        self.setColumnCount(10)
         self.setHorizontalHeaderLabels(
-            ['基金代码', '基金名称', '估算时间', '估算涨跌%', '估算值', '单位净值', '日期',
-             '持仓成本价', '持有份额', '持仓成本', '持有金额', '当日盈亏', '累计盈亏', '盈亏%'])
+            ['基金代码', '基金名称', '估算涨跌', '估算净值', '单位净值',
+             '持仓成本', '持有金额', '当日盈亏', '累计盈亏', '盈亏比例'])
         self.setAlternatingRowColors(True)
         self.setSortingEnabled(True)
         self.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -120,35 +127,23 @@ class FundTableWidget(QTableWidget):
             }}
             {ProfessionalTheme.get_scrollbar_style()}
         """)
+        # 设置列宽 - 参考天天基金等同类软件的布局
         header = self.horizontalHeader()
-        header.setSectionResizeMode(0, header.ResizeMode.Interactive)
-        self.setColumnWidth(0, 90)
-        header.setSectionResizeMode(1, header.ResizeMode.Interactive)
-        self.setColumnWidth(1, 200)
-        header.setSectionResizeMode(2, header.ResizeMode.Interactive)
-        self.setColumnWidth(2, 100)
-        for i in range(3, self.columnCount()):
-            header.setSectionResizeMode(i, header.ResizeMode.Interactive)
-            if i == 3:
-                self.setColumnWidth(i, 80)
-            elif i == 4:
-                self.setColumnWidth(i, 80)
-            elif i == 5:
-                self.setColumnWidth(i, 80)
-            elif i == 6:
-                self.setColumnWidth(i, 100)
-            elif i == 7:
-                self.setColumnWidth(i, 100)
-            elif i == 8:
-                self.setColumnWidth(i, 100)
-            elif i == 9:
-                self.setColumnWidth(i, 100)
-            elif i == 10:
-                self.setColumnWidth(i, 100)
-            elif i == 11:
-                self.setColumnWidth(i, 100)
-            elif i == 12:
-                self.setColumnWidth(i, 100)
+        column_widths = [
+            (0, 90),   # 基金代码
+            (1, 200),  # 基金名称
+            (2, 100),  # 估算涨跌
+            (3, 90),   # 估算净值
+            (4, 90),   # 单位净值
+            (5, 100),  # 持仓成本
+            (6, 100),  # 持有金额
+            (7, 100),  # 当日盈亏
+            (8, 100),  # 累计盈亏
+            (9, 90),   # 盈亏比例
+        ]
+        for col, width in column_widths:
+            header.setSectionResizeMode(col, header.ResizeMode.Interactive)
+            self.setColumnWidth(col, width)
 
     def on_cell_double_clicked(self, row: int, column: int):
         """处理单元格双击事件，打开基金详情"""
@@ -266,6 +261,7 @@ class FundTableWidget(QTableWidget):
             self.hideColumn(column)
 
     def update_data(self, fund_data):
+        """更新表格数据 - 参考天天基金等同类软件优化显示"""
         self.setSortingEnabled(False)
         self.setRowCount(0)
 
@@ -278,35 +274,40 @@ class FundTableWidget(QTableWidget):
             row_idx = self.rowCount()
             self.insertRow(row_idx)
 
+            # 0. 基金代码
             code_item = QTableWidgetItem(code)
             self.setItem(row_idx, 0, code_item)
 
+            # 1. 基金名称
             name_item = QTableWidgetItem(fund.get('name', ''))
             self.setItem(row_idx, 1, name_item)
 
-            gztime_item = QTableWidgetItem(fund.get('gztime', ''))
-            self.setItem(row_idx, 2, gztime_item)
-
+            # 2. 估算涨跌 - 优化显示：加箭头和颜色
             gszzl = fund.get('gszzl', '0')
-            gszzl_item = PercentageItem(f"{gszzl}%")
             gszzl_val = float(gszzl)
             if gszzl_val > 0:
+                gszzl_text = f"↑ +{gszzl_val:.2f}%"
+                gszzl_item = PercentageItem(gszzl_text)
                 gszzl_item.setForeground(QColor(255, 0, 0))
             elif gszzl_val < 0:
+                gszzl_text = f"↓ {gszzl_val:.2f}%"
+                gszzl_item = PercentageItem(gszzl_text)
                 gszzl_item.setForeground(QColor(0, 128, 0))
-            self.setItem(row_idx, 3, gszzl_item)
+            else:
+                gszzl_item = PercentageItem("0.00%")
+            self.setItem(row_idx, 2, gszzl_item)
 
+            # 3. 估算净值
             gsz = fund.get('gsz', '')
             gsz_item = NumericItem(gsz)
-            self.setItem(row_idx, 4, gsz_item)
+            self.setItem(row_idx, 3, gsz_item)
 
+            # 4. 单位净值
             dwjz = fund.get('dwjz', '')
             dwjz_item = NumericItem(dwjz)
-            self.setItem(row_idx, 5, dwjz_item)
+            self.setItem(row_idx, 4, dwjz_item)
 
-            jzrq_item = QTableWidgetItem(fund.get('jzrq', ''))
-            self.setItem(row_idx, 6, jzrq_item)
-
+            # 获取持仓信息
             cost_price = 0.0
             shares = 0.0
             holdings_amount = 0.0
@@ -315,18 +316,12 @@ class FundTableWidget(QTableWidget):
                 cost_price, shares, holdings_amount = self.parent_monitor.get_fund_holdings_detail(
                     code)
 
-            cost_price_item = NumericItem(
-                f"{cost_price:.4f}" if cost_price > 0 else "0.0000")
-            self.setItem(row_idx, 7, cost_price_item)
-
-            shares_item = NumericItem(
-                f"{shares:.2f}" if shares > 0 else "0.00")
-            self.setItem(row_idx, 8, shares_item)
-
+            # 5. 持仓成本
             position_cost = cost_price * shares
             position_cost_item = NumericItem(f"{position_cost:.2f}")
-            self.setItem(row_idx, 9, position_cost_item)
+            self.setItem(row_idx, 5, position_cost_item)
 
+            # 6. 持有金额
             current_value = 0.0
             try:
                 gsz_val = float(gsz) if gsz else 0.0
@@ -335,16 +330,18 @@ class FundTableWidget(QTableWidget):
                 pass
 
             holdings_item = NumericItem(f"{current_value:.2f}")
-            self.setItem(row_idx, 10, holdings_item)
+            self.setItem(row_idx, 6, holdings_item)
 
+            # 7. 当日盈亏
             daily_profit = current_value * gszzl_val / 100
             daily_profit_item = NumericItem(f"{daily_profit:.2f}")
             if daily_profit > 0:
                 daily_profit_item.setForeground(QColor(255, 0, 0))
             elif daily_profit < 0:
                 daily_profit_item.setForeground(QColor(0, 128, 0))
-            self.setItem(row_idx, 11, daily_profit_item)
+            self.setItem(row_idx, 7, daily_profit_item)
 
+            # 8. 累计盈亏
             dividend = 0.0
             if self.parent_monitor:
                 dividend = self.parent_monitor.get_fund_dividend(code)
@@ -355,8 +352,9 @@ class FundTableWidget(QTableWidget):
                 profit_loss_item.setForeground(QColor(255, 0, 0))
             elif total_profit_loss < 0:
                 profit_loss_item.setForeground(QColor(0, 128, 0))
-            self.setItem(row_idx, 12, profit_loss_item)
+            self.setItem(row_idx, 8, profit_loss_item)
 
+            # 9. 盈亏比例
             if position_cost > 0:
                 profit_percentage = (total_profit_loss / position_cost) * 100
             else:
@@ -367,7 +365,7 @@ class FundTableWidget(QTableWidget):
                 profit_pct_item.setForeground(QColor(255, 0, 0))
             elif profit_percentage < 0:
                 profit_pct_item.setForeground(QColor(0, 128, 0))
-            self.setItem(row_idx, 13, profit_pct_item)
+            self.setItem(row_idx, 9, profit_pct_item)
 
             total_profit += total_profit_loss
             total_daily_profit += daily_profit
@@ -375,7 +373,8 @@ class FundTableWidget(QTableWidget):
             total_current_value += current_value
 
         self.setSortingEnabled(True)
-        self.sortItems(3, Qt.DescendingOrder)
+        # 默认按估算涨跌降序排序
+        self.sortItems(2, Qt.DescendingOrder)
 
         if self.parent_monitor:
             self.parent_monitor.update_total_profit(

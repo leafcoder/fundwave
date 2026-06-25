@@ -36,8 +36,6 @@ from ui.theme.professional_theme import ProfessionalTheme
 from ui.theme.theme_manager import get_theme_manager
 from ui.widgets.dividend_history_dialog import DividendHistoryDialog
 from ui.widgets.fund_detail_dialog import FundDetailDialog
-from ui.widgets.investment_calculator_dialog import InvestmentCalculatorDialog
-from ui.widgets.portfolio_dashboard import PortfolioDashboard
 from ui.widgets.search_widget import FundSearchWidget
 from ui.widgets.table_widget import FundTableWidget
 from utils.logger import logger
@@ -147,6 +145,7 @@ class FundMonitor(QMainWindow):
         ]
 
         self.monitored_codes = self.load_monitored_funds()
+        logger.info(f"📋 加载监控基金列表: {len(self.monitored_codes)} 只 - {self.monitored_codes[:5]}{'...' if len(self.monitored_codes) > 5 else ''}")
         self.fund_data = {}
 
         ui_settings = self.db_manager.get_ui_settings()
@@ -157,13 +156,16 @@ class FundMonitor(QMainWindow):
         }
         self.profit_visible = ui_settings.get('profit_visible', True)
 
+        logger.info("🎨 开始设置UI...")
         self.setup_ui()
+        logger.info("⏰ 开始设置定时器...")
         self.setup_timers()
+        logger.info("🔄 执行首次数据更新...")
         self.update_data_async()
 
         self.update_total_profit(0.0)
 
-        logger.info("基金监控系统初始化完成")
+        logger.info("✅ 基金监控系统初始化完成")
 
     def init_tray(self):
         """初始化系统托盘"""
@@ -211,11 +213,10 @@ class FundMonitor(QMainWindow):
         """处理托盘图标激活事件"""
         logger.debug(f"托盘图标被激活，原因: {reason}")
 
-        if reason == QSystemTrayIcon.DoubleClick:
-            logger.info("双击托盘图标 → 显示主界面")
+        # Linux 上通常只触发 Trigger，Windows/macOS 上 DoubleClick 和 Trigger 都可能触发
+        if reason == QSystemTrayIcon.DoubleClick or reason == QSystemTrayIcon.Trigger:
+            logger.info("托盘图标被点击 → 显示主界面")
             self.show_window()
-        elif reason == QSystemTrayIcon.Trigger:
-            logger.debug("单击托盘图标")
 
     def show_window(self):
         """显示主窗口"""
@@ -746,20 +747,6 @@ class FundMonitor(QMainWindow):
         settings_btn.setFixedHeight(btn_height)
         toolbar_layout.addWidget(settings_btn)
 
-        portfolio_btn = QPushButton("📊 投资组合分析")
-        portfolio_btn.clicked.connect(self.show_portfolio_dashboard)
-        portfolio_btn.setStyleSheet(
-            ProfessionalTheme.get_button_style('ghost'))
-        portfolio_btn.setFixedHeight(btn_height)
-        toolbar_layout.addWidget(portfolio_btn)
-
-        calculator_btn = QPushButton("💰 定投计算器")
-        calculator_btn.clicked.connect(self.show_investment_calculator)
-        calculator_btn.setStyleSheet(
-            ProfessionalTheme.get_button_style('ghost'))
-        calculator_btn.setFixedHeight(btn_height)
-        toolbar_layout.addWidget(calculator_btn)
-
         content_layout.addWidget(toolbar_widget)
 
         # 表格区域
@@ -860,31 +847,45 @@ class FundMonitor(QMainWindow):
     def setup_timers(self):
         """设置定时器"""
         refresh_interval, auto_refresh_enabled = self.get_settings()
-        logger.info(f"设置定时器: 刷新间隔={refresh_interval}秒, 自动刷新={'启用' if auto_refresh_enabled else '禁用'}")
-        
+        logger.info(f"⏰ 设置定时器: 刷新间隔={refresh_interval}秒, 自动刷新={'启用' if auto_refresh_enabled else '禁用'}")
+
         self.refresh_timer = QTimer()
         self.refresh_timer.timeout.connect(self.update_data_async)
         self.refresh_timer.start(refresh_interval * 1000)
+        logger.info(f"✅ 定时器已启动，间隔 {refresh_interval} 秒")
 
         if not auto_refresh_enabled:
             self.refresh_timer.stop()
-            logger.info("自动刷新已禁用，定时器已停止")
+            logger.info("⚠️ 自动刷新已禁用，定时器已停止")
 
     def update_data_async(self):
         """异步更新数据"""
-        logger.debug(f"定时器触发，开始更新数据，监控基金数: {len(self.monitored_codes)}")
+        logger.info(f"🔄 定时器触发，开始更新数据，监控基金数: {len(self.monitored_codes)}")
+
+        # 如果自动刷新被关闭，则重新启动（手动刷新时自动启动自动刷新）
+        _, auto_refresh_enabled = self.get_settings()
+        if not auto_refresh_enabled:
+            self.update_settings(auto_refresh_enabled=True)
+            self.refresh_timer.start()
+            self.auto_refresh_btn.setText("⏸ 停止刷新")
+            self.auto_refresh_btn.setStyleSheet(
+                ProfessionalTheme.get_button_style('success')
+            )
+            logger.info("✅ 手动刷新触发，自动刷新已重新启动")
+
         if hasattr(self, 'update_thread') and self.update_thread.isRunning():
-            logger.debug("数据更新线程正在运行，跳过本次更新")
+            logger.info("⏳ 数据更新线程正在运行，跳过本次更新")
             return
 
         self.update_thread = DataUpdateThread(self.monitored_codes)
         self.update_thread.data_updated.connect(self.on_data_updated)
         self.update_thread.error_occurred.connect(self.on_error)
         self.update_thread.start()
-        logger.debug(f"启动数据更新线程，基金代码: {self.monitored_codes}")
+        logger.info(f"🚀 启动数据更新线程，基金代码: {self.monitored_codes}")
 
     def on_data_updated(self, fund_data):
         """数据更新完成"""
+        logger.info(f"✅ 数据更新完成，获取到 {len(fund_data)} 只基金数据")
         self.fund_data = fund_data
         self.fund_table.update_data(fund_data)
         self.count_label.setText(f"监控基金数: {len(self.monitored_codes)}")
@@ -912,27 +913,6 @@ class FundMonitor(QMainWindow):
     def show_notification_settings(self):
         """显示通知设置对话框"""
         dialog = NotificationSettingsDialog(self)
-        dialog.exec()
-
-    def show_portfolio_dashboard(self):
-        """显示投资组合分析仪表盘"""
-        holdings_data = self._get_all_holdings_data()
-
-        if not holdings_data:
-            from PySide6.QtWidgets import QMessageBox
-            QMessageBox.information(
-                self,
-                "提示",
-                "暂无持仓数据\n请先设置基金持仓信息（成本价和份额）"
-            )
-            return
-
-        dialog = PortfolioDashboard(holdings_data, parent=self)
-        dialog.exec()
-
-    def show_investment_calculator(self):
-        """显示定投计算器对话框"""
-        dialog = InvestmentCalculatorDialog(parent=self)
         dialog.exec()
 
     def _get_all_holdings_data(self) -> List[Dict[str, Any]]:

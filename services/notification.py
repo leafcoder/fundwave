@@ -6,7 +6,7 @@
 """
 
 import time
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import requests
 
@@ -177,22 +177,42 @@ class NotificationManager:
 
     def check_and_notify(self, fund_data: Dict,
                          total_profit: float, daily_profit: float):
-        """检查并发送通知"""
+        """检查并发送通知（聚合预警通知）"""
         settings = self.get_notification_settings()
+
+        # 收集涨幅预警和跌幅预警的基金
+        rise_alerts = []
+        fall_alerts = []
 
         for code, fund in fund_data.items():
             gszzl = float(fund.get('gszzl', 0))
             name = fund.get('name', code)
 
             if gszzl >= settings['rise_threshold']:
-                message = f"基金 {name}({code}) 涨幅达到 {gszzl:.2f}%"
-                self.send_popup_notification("涨幅预警", message)
-                self.send_dingtalk_notification("📈 涨幅预警", message)
+                rise_alerts.append({
+                    'code': code,
+                    'name': name,
+                    'gszzl': gszzl
+                })
 
             elif gszzl <= settings['fall_threshold']:
-                message = f"基金 {name}({code}) 跌幅达到 {gszzl:.2f}%"
-                self.send_popup_notification("跌幅预警", message)
-                self.send_dingtalk_notification("📉 跌幅预警", message)
+                fall_alerts.append({
+                    'code': code,
+                    'name': name,
+                    'gszzl': gszzl
+                })
+
+        # 聚合发送涨幅预警通知
+        if rise_alerts:
+            rise_message = self._aggregate_alert_message(rise_alerts, "涨幅")
+            self.send_popup_notification("涨幅预警", rise_message)
+            self.send_dingtalk_notification("📈 涨幅预警", rise_message)
+
+        # 聚合发送跌幅预警通知
+        if fall_alerts:
+            fall_message = self._aggregate_alert_message(fall_alerts, "跌幅")
+            self.send_popup_notification("跌幅预警", fall_message)
+            self.send_dingtalk_notification("📉 跌幅预警", fall_message)
 
         if total_profit >= settings['profit_threshold']:
             message = f"累计盈亏达到 ¥{total_profit:.2f}"
@@ -204,3 +224,56 @@ class NotificationManager:
             self.send_popup_notification("⚠️ 亏损预警", message)
             # 累计亏损不发送钉钉通知（仅保留本地弹窗提醒）
             # self.send_dingtalk_notification("⚠️ 亏损预警", message)
+
+    def _aggregate_alert_message(self, alerts: List[Dict], alert_type: str) -> str:
+        """聚合预警消息，避免字符串过大
+
+        Args:
+            alerts: 预警基金列表，每个元素包含code, name, gszzl
+            alert_type: 预警类型（"涨幅"或"跌幅"）
+
+        Returns:
+            聚合后的消息字符串
+        """
+        if not alerts:
+            return ""
+
+        # 钉钉消息文本内容最多支持2048字符，保守限制在500字符内
+        max_length = 500
+
+        # 构建简洁的聚合消息
+        count = len(alerts)
+        if count == 1:
+            # 单个基金，直接返回详细信息
+            alert = alerts[0]
+            return f"基金 {alert['name']}({alert['code']}) {alert_type}达到 {alert['gszzl']:.2f}%"
+
+        # 多个基金，聚合显示
+        # 先显示总数
+        header = f"{count}只基金触发{alert_type}预警\n"
+
+        # 然后列出各基金的简要信息
+        details = []
+        for alert in alerts:
+            detail = f"{alert['name']}: {alert['gszzl']:.2f}%"
+            details.append(detail)
+
+        # 检查总长度，如果超过限制则截断
+        full_message = header + "\n".join(details)
+
+        if len(full_message) > max_length:
+            # 截断并添加省略提示
+            truncated_details = []
+            current_length = len(header)
+
+            for detail in details:
+                if current_length + len(detail) + 1 > max_length - 20:  # 留出省略提示的空间
+                    remaining_count = len(details) - len(truncated_details)
+                    truncated_details.append(f"...还有{remaining_count}只基金")
+                    break
+                truncated_details.append(detail)
+                current_length += len(detail) + 1
+
+            full_message = header + "\n".join(truncated_details)
+
+        return full_message

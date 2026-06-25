@@ -6,15 +6,11 @@
 """
 
 from __future__ import annotations
-from utils.logger import logger
-from services.fund_data_service import FundDataService, get_fund_data_service
 
-import json
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import matplotlib
 import matplotlib.pyplot as plt
-import requests
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PySide6.QtCore import Qt, QThread, Signal
@@ -24,6 +20,9 @@ from PySide6.QtWidgets import (QDialog, QGridLayout, QGroupBox, QHBoxLayout,
                                QProgressBar, QPushButton, QSplitter,
                                QTableWidget, QTableWidgetItem, QVBoxLayout,
                                QWidget)
+
+from services.fund_data_service import FundDataService, get_fund_data_service
+from utils.logger import logger
 
 matplotlib.use('Agg')
 plt.rcParams['font.sans-serif'] = ['WenQuanYi Micro Hei',
@@ -216,6 +215,19 @@ class FundDetailDialog(QDialog):
         header_layout.addWidget(title_label)
         header_layout.addStretch()
 
+        # 数据来源标签
+        self.data_source_label = QLabel("📡 加载中...")
+        self.data_source_label.setStyleSheet("""
+            QLabel {
+                color: rgba(255, 255, 255, 0.9);
+                font-size: 13px;
+                padding: 4px 12px;
+                background: rgba(255, 255, 255, 0.2);
+                border-radius: 4px;
+            }
+        """)
+        header_layout.addWidget(self.data_source_label)
+
         main_layout.addWidget(header_widget)
 
         # 进度条
@@ -271,7 +283,7 @@ class FundDetailDialog(QDialog):
             info_grid.addWidget(label, row, 0)
 
             value_label = QLabel("加载中...")
-            value_label.setStyleSheet(f"color: #334155; font-weight: bold;")
+            value_label.setStyleSheet("color: #334155; font-weight: bold;")
             info_grid.addWidget(value_label, row, 1)
 
             self.info_labels[key] = value_label
@@ -416,6 +428,17 @@ class FundDetailDialog(QDialog):
 
         # 显示数据来源标记
         data_source = detail_data.get('data_source', 'unknown')
+
+        # 更新数据来源标签
+        source_text = {
+            'real_api': '✅ 真实数据',
+            'fallback': '⚠️ 部分备用',
+            'empty': '⚠️ 无数据',
+            'failed': '❌ 获取失败',
+            'unknown': '❓ 未知来源'
+        }.get(data_source, '❓ 未知来源')
+        self.data_source_label.setText(f"📡 {source_text}")
+
         logger.info(f"基金{self.fund_code}详情加载完成 (数据源: {data_source})")
 
     def on_error(self, error_msg: str):
