@@ -22,7 +22,7 @@ from matplotlib.figure import Figure
 from PySide6.QtCore import Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QIcon, QPixmap
 from PySide6.QtWidgets import (QApplication, QCheckBox, QDialog,
-                               QDoubleSpinBox, QGridLayout, QGroupBox,
+                               QDoubleSpinBox, QFrame, QGridLayout, QGroupBox,
                                QHBoxLayout, QInputDialog, QLabel, QLineEdit,
                                QMainWindow, QMenu, QMessageBox, QPushButton,
                                QStyle, QSystemTrayIcon, QTableWidgetItem,
@@ -36,6 +36,7 @@ from ui.theme.professional_theme import ProfessionalTheme
 from ui.theme.theme_manager import get_theme_manager
 from ui.widgets.dividend_history_dialog import DividendHistoryDialog
 from ui.widgets.fund_detail_dialog import FundDetailDialog
+from ui.widgets.floating_profit_widget import FloatingProfitWidget
 from ui.widgets.search_widget import FundSearchWidget
 from ui.widgets.table_widget import FundTableWidget
 from utils.logger import logger
@@ -125,6 +126,11 @@ class FundMonitor(QMainWindow):
 
         self.init_tray()
 
+        # 初始化浮窗
+        self._last_daily_profit = 0.0
+        self.floating_profit = FloatingProfitWidget()
+        self.floating_profit.show_main_window.connect(self.show_window)
+
         self.default_codes = [
             "011329",
             "011854",
@@ -177,9 +183,12 @@ class FundMonitor(QMainWindow):
                     'app_icon') and self.app_icon and not self.app_icon.isNull():
                 self.tray_icon.setIcon(self.app_icon)
             else:
-                app_icon = self.windowIcon()
-                if not app_icon.isNull():
-                    self.tray_icon.setIcon(app_icon)
+                # 程序化生成风格化图标
+                generated = self._generate_tray_icon()
+                if generated:
+                    self.tray_icon.setIcon(generated)
+                    self.setWindowIcon(generated)
+                    self.app_icon = generated
                 else:
                     icon = self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
                     if not icon.isNull():
@@ -189,9 +198,31 @@ class FundMonitor(QMainWindow):
                         if not icon.isNull():
                             self.tray_icon.setIcon(icon)
 
-            self.tray_icon.setToolTip("智能基金监控系统")
+            self._update_tray_tooltip()
 
             tray_menu = QMenu()
+            tray_menu.setStyleSheet("""
+                QMenu {
+                    background-color: white;
+                    border: none;
+                    border-radius: 6px;
+                    padding: 4px 0px;
+                }
+                QMenu::item {
+                    padding: 6px 24px;
+                    border-radius: 4px;
+                    margin: 0px 4px;
+                }
+                QMenu::item:selected {
+                    background-color: #E8F3FF;
+                    color: #1677FF;
+                }
+                QMenu::separator {
+                    height: 1px;
+                    background: #E5E6EB;
+                    margin: 4px 8px;
+                }
+            """)
 
             show_action = tray_menu.addAction("显示主界面")
             show_action.triggered.connect(self.show_window)
@@ -208,6 +239,56 @@ class FundMonitor(QMainWindow):
             self.tray_icon.show()
         else:
             QMessageBox.warning(self, "警告", "系统不支持系统托盘功能")
+
+    def _generate_tray_icon(self) -> Optional[QIcon]:
+        """程序化生成风格化的托盘图标
+
+        Returns:
+            生成的图标，失败返回 None
+        """
+        try:
+            from PySide6.QtGui import QPainter, QLinearGradient, QFont, QPixmap, QRadialGradient
+            from PySide6.QtCore import QRectF
+
+            size = 64
+            pixmap = QPixmap(size, size)
+            pixmap.fill(Qt.transparent)
+
+            painter = QPainter(pixmap)
+            painter.setRenderHint(QPainter.Antialiasing)
+
+            # 圆形背景渐变
+            grad = QRadialGradient(size / 2, size / 2, size / 2)
+            grad.setColorAt(0, "#4A9EFF")
+            grad.setColorAt(1, "#1677FF")
+            painter.setBrush(grad)
+            painter.setPen(Qt.NoPen)
+            painter.drawEllipse(2, 2, size - 4, size - 4)
+
+            # 白色 ¥ 符号
+            painter.setPen(Qt.white)
+            font = QFont("sans-serif", 28, QFont.Bold)
+            painter.setFont(font)
+            painter.drawText(QRectF(0, 0, size, size), Qt.AlignCenter, "¥")
+
+            painter.end()
+
+            icon = QIcon(pixmap)
+            return icon if not icon.isNull() else None
+        except Exception as e:
+            logger.warning(f"生成托盘图标失败: {e}")
+            return None
+
+    def _update_tray_tooltip(self) -> None:
+        """更新托盘提示信息（含今日盈亏）"""
+        profit = getattr(self, '_last_daily_profit', 0.0)
+        if profit > 0:
+            profit_text = f"+¥{profit:.2f}"
+        elif profit < 0:
+            profit_text = f"-¥{abs(profit):.2f}"
+        else:
+            profit_text = "¥0.00"
+        self.tray_icon.setToolTip(f"智能基金监控系统\n今日盈亏: {profit_text}")
 
     def on_tray_icon_activated(self, reason):
         """处理托盘图标激活事件"""
@@ -230,29 +311,29 @@ class FundMonitor(QMainWindow):
         self.raise_()
         self.activateWindow()
         self.setWindowTitle("智能基金监控系统")
+        self.floating_profit.hide()
+
+        # 刷新表格数据（后台更新时可能跳过了UI刷新）
+        if hasattr(self, 'fund_data') and self.fund_data:
+            self.fund_table.update_data(self.fund_data)
+            self.count_label.setText(f"{len(self.monitored_codes)}")
+            self.statusBar().showMessage(
+                f"最后更新: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     def quit_application(self):
         """退出应用程序"""
         logger.info("正在退出应用程序...")
 
         try:
-            if hasattr(self, 'refresh_timer'):
-                self.refresh_timer.stop()
-                logger.debug("定时器已停止")
-
-            if hasattr(
-                    self, 'update_thread') and self.update_thread.isRunning():
-                self.update_thread.stop()
-                if not self.update_thread.wait(3000):
-                    logger.warning("线程未在规定时间内结束，强制终止")
-                    self.update_thread.terminate()
-                    self.update_thread.wait()
-                logger.debug("更新线程已停止")
+            self._stop_data_updates()
 
             if hasattr(self, 'tray_icon') and self.tray_icon:
                 self.tray_icon.hide()
                 self.tray_icon = None
                 logger.debug("托盘图标已隐藏")
+
+            if hasattr(self, 'floating_profit'):
+                self.floating_profit.close()
 
             self.db_manager.close()
             logger.info("应用程序正常退出")
@@ -264,22 +345,29 @@ class FundMonitor(QMainWindow):
 
     def closeEvent(self, event):
         """关闭事件，最小化到托盘而不是退出"""
-        if hasattr(self, 'refresh_timer'):
-            self.refresh_timer.stop()
-
-        if hasattr(self, 'update_thread') and self.update_thread.isRunning():
-            self.update_thread.stop()
-            self.update_thread.wait(3000)
-
         if QSystemTrayIcon.isSystemTrayAvailable() and hasattr(self, 'tray_icon'):
             self.hide()
+            self.floating_profit.update_profit(self._last_daily_profit)
+            self.floating_profit.show()
+            # 继续后台数据更新，浮窗需要最新数据
+            if not self.refresh_timer.isActive():
+                self.refresh_timer.start()
             event.ignore()
         else:
+            self._stop_data_updates()
             try:
                 self.db_manager.close()
             except Exception as e:
                 logger.error(f"关闭数据库连接时出错: {e}")
             event.accept()
+
+    def _stop_data_updates(self):
+        """停止数据更新线程和定时器"""
+        if hasattr(self, 'refresh_timer'):
+            self.refresh_timer.stop()
+        if hasattr(self, 'update_thread') and self.update_thread.isRunning():
+            self.update_thread.stop()
+            self.update_thread.wait(3000)
 
     def load_monitored_funds(self) -> List[str]:
         """从数据库加载用户选择的基金列表"""
@@ -443,7 +531,7 @@ class FundMonitor(QMainWindow):
                     stop:0 {ProfessionalTheme.PRIMARY_COLOR}, stop:1 {ProfessionalTheme.PRIMARY_LIGHT});
             }}
         """)
-        header_widget.setFixedHeight(90)
+        header_widget.setFixedHeight(72)
 
         header_layout = QHBoxLayout(header_widget)
         header_layout.setContentsMargins(32, 0, 32, 0)
@@ -452,10 +540,12 @@ class FundMonitor(QMainWindow):
         title_container = QHBoxLayout()
         title_container.setSpacing(12)
 
-        icon_label = QLabel("📊")
+        icon_label = QLabel("¥")
         icon_label.setStyleSheet("""
             QLabel {
+                color: white;
                 font-size: 28px;
+                font-weight: bold;
                 background: transparent;
             }
         """)
@@ -465,7 +555,7 @@ class FundMonitor(QMainWindow):
         title_label.setStyleSheet("""
             QLabel {
                 color: white;
-                font-size: 24px;
+                font-size: 22px;
                 font-weight: bold;
                 background: transparent;
                 letter-spacing: 1px;
@@ -488,7 +578,7 @@ class FundMonitor(QMainWindow):
                 padding: 8px 16px;
             }}
         """)
-        profit_card.setFixedHeight(44)
+        profit_card.setFixedHeight(38)
 
         profit_inner = QHBoxLayout(profit_card)
         profit_inner.setContentsMargins(16, 0, 16, 0)
@@ -498,21 +588,23 @@ class FundMonitor(QMainWindow):
         self.total_profit_label.setStyleSheet("""
             QLabel {
                 color: white;
-                font-size: 18px;
+                font-size: 16px;
                 font-weight: bold;
                 background: transparent;
             }
         """)
         profit_inner.addWidget(self.total_profit_label)
 
-        self.profit_eye_btn = QPushButton("👁")
-        self.profit_eye_btn.setFixedSize(28, 28)
+        self.profit_eye_btn = QPushButton("...")
+        self.profit_eye_btn.setFixedSize(26, 26)
         self.profit_eye_btn.setStyleSheet("""
             QPushButton {
                 background: rgba(255, 255, 255, 0.2);
                 border: none;
                 border-radius: 14px;
-                font-size: 14px;
+                color: white;
+                font-size: 10px;
+                font-weight: bold;
             }
             QPushButton:hover {
                 background: rgba(255, 255, 255, 0.3);
@@ -525,9 +617,9 @@ class FundMonitor(QMainWindow):
 
         if not getattr(self, 'profit_visible', True):
             self.total_profit_label.setText("累计盈亏: ¥****")
-            self.profit_eye_btn.setText("🔒")
+            self.profit_eye_btn.setText("x")
         else:
-            self.profit_eye_btn.setText("👁")
+            self.profit_eye_btn.setText("...")
 
         profit_container.addWidget(profit_card)
         header_layout.addLayout(profit_container)
@@ -539,45 +631,44 @@ class FundMonitor(QMainWindow):
         content_widget.setStyleSheet(
             f"background: {ProfessionalTheme.BG_SECONDARY};")
         content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(24, 24, 24, 24)
-        content_layout.setSpacing(20)
+        content_layout.setContentsMargins(20, 20, 20, 20)
+        content_layout.setSpacing(16)
 
         # 统计卡片区域
         stats_widget = QWidget()
         stats_widget.setStyleSheet(f"""
             QWidget {{
-                background: white;
-                border-radius: {ProfessionalTheme.RADIUS_LARGE}px;
+                {ProfessionalTheme.get_card_container_style()}
             }}
         """)
-        stats_widget.setFixedHeight(110)
+        stats_widget.setFixedHeight(90)
 
         stats_layout = QHBoxLayout(stats_widget)
-        stats_layout.setContentsMargins(28, 16, 28, 16)
-        stats_layout.setSpacing(40)
+        stats_layout.setContentsMargins(24, 14, 24, 14)
+        stats_layout.setSpacing(0)
 
         stat_items = [
-            ("📊", "监控基金数", f"{len(self.monitored_codes)}", ProfessionalTheme.PRIMARY_COLOR, False),
-            ("💰", "今日盈亏", "¥0.00", ProfessionalTheme.SUCCESS_COLOR, True),
-            ("💳", "持仓成本", "¥0.00", ProfessionalTheme.WARNING_COLOR, True),
-            ("💎", "持有金额", "¥0.00", "#8B5CF6", True)
+            ("监控基金数", f"{len(self.monitored_codes)}", ProfessionalTheme.PRIMARY_COLOR, False),
+            ("今日盈亏", "¥0.00", ProfessionalTheme.SUCCESS_COLOR, True),
+            ("持仓成本", "¥0.00", ProfessionalTheme.WARNING_COLOR, True),
+            ("持有金额", "¥0.00", ProfessionalTheme.PRIMARY_DARK, True)
         ]
 
-        for icon, label_text, value_text, color, can_hide in stat_items:
+        for idx, (label_text, value_text, color, can_hide) in enumerate(stat_items):
             stat_card = QWidget()
             stat_card.setStyleSheet("background: transparent;")
             stat_card_layout = QVBoxLayout(stat_card)
             stat_card_layout.setContentsMargins(0, 0, 0, 0)
-            stat_card_layout.setSpacing(6)
+            stat_card_layout.setSpacing(4)
 
-            # 标题行
+            # 标题行 - 彩色圆点 + 标签
             header_row = QHBoxLayout()
-            header_row.setSpacing(8)
+            header_row.setSpacing(6)
 
-            icon_lbl = QLabel(icon)
-            icon_lbl.setStyleSheet(
-                f"QLabel {{ font-size: 16px; background: transparent; }}")
-            header_row.addWidget(icon_lbl)
+            dot_label = QLabel("-")
+            dot_label.setStyleSheet(
+                f"QLabel {{ color: {color}; font-size: 14px; font-weight: bold; background: transparent; }}")
+            header_row.addWidget(dot_label)
 
             label = QLabel(label_text)
             label.setStyleSheet(f"""
@@ -612,21 +703,23 @@ class FundMonitor(QMainWindow):
             value_layout.addWidget(value_label)
 
             if can_hide:
-                eye_btn = QPushButton("👁")
+                eye_btn = QPushButton("...")
                 eye_btn.setFixedSize(26, 26)
                 eye_btn.setStyleSheet(f"""
                     QPushButton {{
                         background: {ProfessionalTheme.BG_SECONDARY};
                         border: none;
                         border-radius: 13px;
-                        font-size: 12px;
+                        color: {ProfessionalTheme.TEXT_TERTIARY};
+                        font-size: 9px;
+                        font-weight: bold;
                     }}
                     QPushButton:hover {{
                         background: {ProfessionalTheme.BORDER_COLOR};
                     }}
                 """)
                 eye_btn.clicked.connect(
-                    lambda lt=label_text, vl=value_label, eb=eye_btn:
+                    lambda *args, lt=label_text, vl=value_label, eb=eye_btn:
                     self.toggle_stat_visibility(lt, vl, eb))
                 value_layout.addWidget(eye_btn)
 
@@ -644,21 +737,29 @@ class FundMonitor(QMainWindow):
 
             stats_layout.addWidget(stat_card)
 
+            # 统计项之间添加竖线分割线
+            if idx < len(stat_items) - 1:
+                separator = QFrame()
+                separator.setFrameShape(QFrame.VLine)
+                separator.setStyleSheet(
+                    f"color: {ProfessionalTheme.BORDER_COLOR}; background: transparent;")
+                separator.setFixedWidth(1)
+                stats_layout.addWidget(separator)
+
         content_layout.addWidget(stats_widget)
 
         # 工具栏区域
         toolbar_widget = QWidget()
         toolbar_widget.setStyleSheet(f"""
             QWidget {{
-                background: white;
-                border-radius: {ProfessionalTheme.RADIUS_LARGE}px;
+                {ProfessionalTheme.get_card_container_style()}
             }}
         """)
-        toolbar_widget.setFixedHeight(64)
+        toolbar_widget.setFixedHeight(52)
 
         toolbar_layout = QHBoxLayout(toolbar_widget)
-        toolbar_layout.setContentsMargins(20, 10, 20, 10)
-        toolbar_layout.setSpacing(12)
+        toolbar_layout.setContentsMargins(16, 8, 16, 8)
+        toolbar_layout.setSpacing(8)
 
         # 刷新间隔设置组
         refresh_group = QHBoxLayout()
@@ -701,47 +802,47 @@ class FundMonitor(QMainWindow):
 
         toolbar_layout.addLayout(refresh_group)
 
-        toolbar_layout.addSpacing(24)
+        toolbar_layout.addSpacing(16)
 
         # 操作按钮组
         self.auto_refresh_btn = QPushButton(
-            "⏸ 停止刷新" if auto_refresh_enabled else "▶ 启动刷新"
+            "停止刷新" if auto_refresh_enabled else "启动刷新"
         )
         self.auto_refresh_btn.clicked.connect(self.toggle_auto_refresh)
         self.auto_refresh_btn.setStyleSheet(
             ProfessionalTheme.get_button_style('success') if auto_refresh_enabled
             else ProfessionalTheme.get_button_style('default')
         )
-        self.auto_refresh_btn.setFixedHeight(40)
+        self.auto_refresh_btn.setFixedHeight(36)
         toolbar_layout.addWidget(self.auto_refresh_btn)
 
-        refresh_btn = QPushButton("🔄 手动刷新")
+        refresh_btn = QPushButton("手动刷新")
         refresh_btn.clicked.connect(self.update_data_async)
         refresh_btn.setStyleSheet(
             ProfessionalTheme.get_button_style('primary'))
-        refresh_btn.setFixedHeight(40)
+        refresh_btn.setFixedHeight(36)
         toolbar_layout.addWidget(refresh_btn)
 
         toolbar_layout.addStretch()
 
         # 功能按钮组（统一尺寸）
-        btn_height = 40
+        btn_height = 36
 
-        add_fund_btn = QPushButton("➕ 添加基金")
+        add_fund_btn = QPushButton("添加基金")
         add_fund_btn.clicked.connect(self.show_add_fund_dialog)
         add_fund_btn.setStyleSheet(
             ProfessionalTheme.get_button_style('success'))
         add_fund_btn.setFixedHeight(btn_height)
         toolbar_layout.addWidget(add_fund_btn)
 
-        remove_fund_btn = QPushButton("🗑 删除基金")
+        remove_fund_btn = QPushButton("删除基金")
         remove_fund_btn.clicked.connect(self.remove_fund)
         remove_fund_btn.setStyleSheet(
             ProfessionalTheme.get_button_style('danger'))
         remove_fund_btn.setFixedHeight(btn_height)
         toolbar_layout.addWidget(remove_fund_btn)
 
-        settings_btn = QPushButton("🔔 通知设置")
+        settings_btn = QPushButton("通知设置")
         settings_btn.clicked.connect(self.show_notification_settings)
         settings_btn.setStyleSheet(ProfessionalTheme.get_button_style('ghost'))
         settings_btn.setFixedHeight(btn_height)
@@ -753,8 +854,7 @@ class FundMonitor(QMainWindow):
         table_widget = QWidget()
         table_widget.setStyleSheet(f"""
             QWidget {{
-                background: white;
-                border-radius: {ProfessionalTheme.RADIUS_LARGE}px;
+                {ProfessionalTheme.get_card_container_style()}
             }}
         """)
 
@@ -765,23 +865,24 @@ class FundMonitor(QMainWindow):
         self.tab_widget.setStyleSheet(f"""
             QTabWidget::pane {{
                 border: none;
-                background: white;
-                border-radius: {ProfessionalTheme.RADIUS_LARGE - 4}px;
+                background: {ProfessionalTheme.BG_PRIMARY};
+                border-radius: {ProfessionalTheme.RADIUS_MEDIUM}px;
             }}
             QTabBar::tab {{
                 background: transparent;
                 color: {ProfessionalTheme.TEXT_SECONDARY};
-                padding: 12px 28px;
-                margin-right: 4px;
+                padding: 10px 24px;
+                margin-right: 2px;
                 font-size: {ProfessionalTheme.FONT_SIZE_BODY}px;
                 font-weight: {ProfessionalTheme.FONT_WEIGHT_MEDIUM};
-                border-top-left-radius: {ProfessionalTheme.RADIUS_MEDIUM}px;
-                border-top-right-radius: {ProfessionalTheme.RADIUS_MEDIUM}px;
+                border: none;
+                border-top-left-radius: {ProfessionalTheme.RADIUS_SMALL}px;
+                border-top-right-radius: {ProfessionalTheme.RADIUS_SMALL}px;
             }}
             QTabBar::tab:selected {{
-                background: white;
+                background: {ProfessionalTheme.BG_PRIMARY};
                 color: {ProfessionalTheme.PRIMARY_COLOR};
-                border-bottom: 3px solid {ProfessionalTheme.PRIMARY_COLOR};
+                border-bottom: 2px solid {ProfessionalTheme.PRIMARY_COLOR};
             }}
             QTabBar::tab:hover:!selected {{
                 background: {ProfessionalTheme.BG_HOVER};
@@ -800,11 +901,11 @@ class FundMonitor(QMainWindow):
         # 状态栏
         self.statusBar().setStyleSheet(f"""
             QStatusBar {{
-                background: white;
-                color: {ProfessionalTheme.TEXT_SECONDARY};
+                background: {ProfessionalTheme.BG_PRIMARY};
+                color: {ProfessionalTheme.TEXT_TERTIARY};
                 font-size: {ProfessionalTheme.FONT_SIZE_CAPTION}px;
                 border-top: 1px solid {ProfessionalTheme.BORDER_LIGHT};
-                padding: 4px 12px;
+                padding: 2px 12px;
             }}
             QStatusBar::item {{ border: none; }}
         """)
@@ -867,7 +968,7 @@ class FundMonitor(QMainWindow):
         if not auto_refresh_enabled:
             self.update_settings(auto_refresh_enabled=True)
             self.refresh_timer.start()
-            self.auto_refresh_btn.setText("⏸ 停止刷新")
+            self.auto_refresh_btn.setText("停止刷新")
             self.auto_refresh_btn.setStyleSheet(
                 ProfessionalTheme.get_button_style('success')
             )
@@ -887,10 +988,13 @@ class FundMonitor(QMainWindow):
         """数据更新完成"""
         logger.info(f"✅ 数据更新完成，获取到 {len(fund_data)} 只基金数据")
         self.fund_data = fund_data
-        self.fund_table.update_data(fund_data)
-        self.count_label.setText(f"监控基金数: {len(self.monitored_codes)}")
-        self.statusBar().showMessage(
-            f"最后更新: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+        visible = self.isVisible()
+        if visible:
+            self.fund_table.update_data(fund_data)
+            self.count_label.setText(f"{len(self.monitored_codes)}")
+            self.statusBar().showMessage(
+                f"最后更新: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
         if hasattr(self, 'notification_manager') and hasattr(
                 self, 'total_profit'):
@@ -900,7 +1004,9 @@ class FundMonitor(QMainWindow):
 
     def on_error(self, error_msg):
         """错误处理"""
-        QMessageBox.warning(self, "错误", f"数据更新失败: {error_msg}")
+        logger.error(f"数据更新失败: {error_msg}")
+        if self.isVisible():
+            QMessageBox.warning(self, "错误", f"数据更新失败: {error_msg}")
 
     def show_add_fund_dialog(self):
         """显示添加基金对话框"""
@@ -1033,13 +1139,13 @@ class FundMonitor(QMainWindow):
             if visible:
                 if original_value:
                     value_label.setText(original_value)
-                eye_btn.setText("👁")
+                eye_btn.setText("...")
             else:
                 if original_value:
                     value_label.setText("¥****")
-                eye_btn.setText("🔒")
+                eye_btn.setText("x")
 
-    def toggle_profit_visibility(self):
+    def toggle_profit_visibility(self, checked=False):
         """切换累计盈亏的可见性"""
         self.profit_visible = not self.profit_visible
 
@@ -1055,10 +1161,32 @@ class FundMonitor(QMainWindow):
             else:
                 self.total_profit_label.setText(
                     f"累计盈亏: ¥{self.profit_real_value:.2f}")
-            self.profit_eye_btn.setText("👁")
+            self.profit_eye_btn.setText("...")
         else:
             self.total_profit_label.setText("累计盈亏: ¥****")
-            self.profit_eye_btn.setText("🔒")
+            self.profit_eye_btn.setText("x")
+
+    def _set_colored_label_style(self, label: QLabel, color: str,
+                                  font_size: int = 18,
+                                  object_name: str = None) -> None:
+        """设置带颜色的标签样式
+
+        Args:
+            label: 目标标签
+            color: 文字颜色
+            font_size: 字号
+            object_name: 可选的QSS对象名（如value_今日盈亏）
+        """
+        selector = f"QLabel#{object_name}" if object_name else "QLabel"
+        label.setStyleSheet(f"""
+            {selector} {{
+                color: {color};
+                font-size: {font_size}px;
+                font-weight: bold;
+                background: transparent;
+                letter-spacing: -0.5px;
+            }}
+        """)
 
     def update_total_profit(
             self,
@@ -1076,38 +1204,23 @@ class FundMonitor(QMainWindow):
         """
         self.total_profit = profit
         self.profit_real_value = profit
+        self._last_daily_profit = daily_profit
+        self.floating_profit.update_profit(daily_profit)
+        self._update_tray_tooltip()
 
         if self.profit_visible:
             if profit > 0:
                 self.total_profit_label.setText(f"累计盈亏: +¥{profit:.2f}")
-                self.total_profit_label.setStyleSheet(f"""
-                    QLabel {{
-                        color: {ProfessionalTheme.ERROR_COLOR};
-                        font-size: 18px;
-                        font-weight: bold;
-                        background: transparent;
-                    }}
-                """)
+                self._set_colored_label_style(
+                    self.total_profit_label, ProfessionalTheme.RISE_COLOR)
             elif profit < 0:
                 self.total_profit_label.setText(f"累计盈亏: -¥{abs(profit):.2f}")
-                self.total_profit_label.setStyleSheet(f"""
-                    QLabel {{
-                        color: {ProfessionalTheme.SUCCESS_COLOR};
-                        font-size: 18px;
-                        font-weight: bold;
-                        background: transparent;
-                    }}
-                """)
+                self._set_colored_label_style(
+                    self.total_profit_label, ProfessionalTheme.FALL_COLOR)
             else:
                 self.total_profit_label.setText(f"累计盈亏: ¥{profit:.2f}")
-                self.total_profit_label.setStyleSheet("""
-                    QLabel {
-                        color: white;
-                        font-size: 18px;
-                        font-weight: bold;
-                        background: transparent;
-                    }
-                """)
+                self._set_colored_label_style(
+                    self.total_profit_label, "white")
         else:
             self.total_profit_label.setText("累计盈亏: ¥****")
 
@@ -1119,38 +1232,20 @@ class FundMonitor(QMainWindow):
             if self.visible_stats.get("今日盈亏", True):
                 if daily_profit > 0:
                     self.daily_profit_label.setText(f"+¥{daily_profit:.2f}")
-                    self.daily_profit_label.setStyleSheet(f"""
-                        QLabel#value_今日盈亏 {{
-                            color: {ProfessionalTheme.ERROR_COLOR};
-                            font-size: {ProfessionalTheme.FONT_SIZE_H3}px;
-                            font-weight: bold;
-                            background: transparent;
-                            letter-spacing: -0.5px;
-                        }}
-                    """)
+                    self._set_colored_label_style(
+                        self.daily_profit_label, ProfessionalTheme.RISE_COLOR,
+                        ProfessionalTheme.FONT_SIZE_H3, "value_今日盈亏")
                 elif daily_profit < 0:
                     self.daily_profit_label.setText(
                         f"-¥{abs(daily_profit):.2f}")
-                    self.daily_profit_label.setStyleSheet(f"""
-                        QLabel#value_今日盈亏 {{
-                            color: {ProfessionalTheme.SUCCESS_COLOR};
-                            font-size: {ProfessionalTheme.FONT_SIZE_H3}px;
-                            font-weight: bold;
-                            background: transparent;
-                            letter-spacing: -0.5px;
-                        }}
-                    """)
+                    self._set_colored_label_style(
+                        self.daily_profit_label, ProfessionalTheme.FALL_COLOR,
+                        ProfessionalTheme.FONT_SIZE_H3, "value_今日盈亏")
                 else:
                     self.daily_profit_label.setText(f"¥{daily_profit:.2f}")
-                    self.daily_profit_label.setStyleSheet(f"""
-                        QLabel#value_今日盈亏 {{
-                            color: {ProfessionalTheme.SUCCESS_COLOR};
-                            font-size: {ProfessionalTheme.FONT_SIZE_H3}px;
-                            font-weight: bold;
-                            background: transparent;
-                            letter-spacing: -0.5px;
-                        }}
-                    """)
+                    self._set_colored_label_style(
+                        self.daily_profit_label, ProfessionalTheme.FLAT_COLOR,
+                        ProfessionalTheme.FONT_SIZE_H3, "value_今日盈亏")
             else:
                 self.daily_profit_label.setText("¥****")
 
@@ -1528,37 +1623,13 @@ class FundMonitor(QMainWindow):
                 if new_state:
                     self.refresh_timer.start()
                     self.auto_refresh_btn.setText("停止刷新")
-                    self.auto_refresh_btn.setStyleSheet(f"""
-                        QPushButton {{
-                            background: #10b981;
-                            color: white;
-                            border: none;
-                            padding: 8px 16px;
-                            border-radius: 6px;
-                            font-size: 13px;
-                            font-weight: 500;
-                        }}
-                        QPushButton:hover {{
-                            background: {self.darken_color('#10b981')};
-                        }}
-                    """)
+                    self.auto_refresh_btn.setStyleSheet(
+                        ProfessionalTheme.get_button_style('success'))
                 else:
                     self.refresh_timer.stop()
                     self.auto_refresh_btn.setText("启动刷新")
-                    self.auto_refresh_btn.setStyleSheet(f"""
-                        QPushButton {{
-                            background: #64748b;
-                            color: white;
-                            border: none;
-                            padding: 8px 16px;
-                            border-radius: 6px;
-                            font-size: 13px;
-                            font-weight: 500;
-                        }}
-                        QPushButton:hover {{
-                            background: {self.darken_color('#64748b')};
-                        }}
-                    """)
+                    self.auto_refresh_btn.setStyleSheet(
+                        ProfessionalTheme.get_button_style('default'))
 
                 QMessageBox.information(
                     self,
@@ -1578,23 +1649,26 @@ class AddFundDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("添加基金")
         self.setFixedSize(400, 200)
-        self.setStyleSheet("""
-            QDialog {
-                background: white;
-            }
+        self.setStyleSheet(f"""
+            QDialog {{
+                background: {ProfessionalTheme.BG_PRIMARY};
+            }}
         """)
 
         layout = QVBoxLayout()
-        layout.setContentsMargins(24, 24, 24, 24)
-        layout.setSpacing(16)
+        layout.setContentsMargins(ProfessionalTheme.SPACING_LG,
+                                  ProfessionalTheme.SPACING_LG,
+                                  ProfessionalTheme.SPACING_LG,
+                                  ProfessionalTheme.SPACING_LG)
+        layout.setSpacing(ProfessionalTheme.SPACING_MD)
 
         title_label = QLabel("添加基金")
-        title_label.setStyleSheet("""
-            QLabel {
-                color: #1e293b;
-                font-size: 18px;
+        title_label.setStyleSheet(f"""
+            QLabel {{
+                color: {ProfessionalTheme.TEXT_PRIMARY};
+                font-size: {ProfessionalTheme.FONT_SIZE_H4}px;
                 font-weight: bold;
-            }
+            }}
         """)
         layout.addWidget(title_label)
 
@@ -1602,72 +1676,33 @@ class AddFundDialog(QDialog):
         self.code_input.setPlaceholderText("请输入6位基金代码...")
         self.code_input.setMaxLength(6)
         self.code_input.textChanged.connect(self.validate_input)
-        self.code_input.setStyleSheet("""
-            QLineEdit {
-                background: #f8fafc;
-                border: 1px solid #e2e8f0;
-                border-radius: 8px;
-                padding: 12px 16px;
-                color: #475569;
-                font-size: 14px;
-            }
-            QLineEdit:focus {
-                border: 1px solid #3b82f6;
-            }
-        """)
+        self.code_input.setStyleSheet(
+            ProfessionalTheme.get_input_style())
         layout.addWidget(self.code_input)
 
         self.status_label = QLabel("")
-        self.status_label.setStyleSheet("""
-            QLabel {
-                color: #64748b;
-                font-size: 12px;
-            }
+        self.status_label.setStyleSheet(f"""
+            QLabel {{
+                color: {ProfessionalTheme.TEXT_TERTIARY};
+                font-size: {ProfessionalTheme.FONT_SIZE_CAPTION}px;
+            }}
         """)
         layout.addWidget(self.status_label)
 
         btn_layout = QHBoxLayout()
-        btn_layout.setSpacing(8)
+        btn_layout.setSpacing(ProfessionalTheme.SPACING_SM)
 
         cancel_btn = QPushButton("取消")
         cancel_btn.clicked.connect(self.reject)
-        cancel_btn.setStyleSheet("""
-            QPushButton {
-                background: #f1f5f9;
-                color: #64748b;
-                border: none;
-                padding: 10px 20px;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: 500;
-            }
-            QPushButton:hover {
-                background: #e2e8f0;
-            }
-        """)
+        cancel_btn.setStyleSheet(
+            ProfessionalTheme.get_button_style('default'))
         btn_layout.addWidget(cancel_btn)
 
         self.add_btn = QPushButton("添加")
         self.add_btn.clicked.connect(self.on_add_clicked)
         self.add_btn.setEnabled(False)
-        self.add_btn.setStyleSheet("""
-            QPushButton {
-                background: #3b82f6;
-                color: white;
-                border: none;
-                padding: 10px 20px;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: 500;
-            }
-            QPushButton:hover {
-                background: #2563eb;
-            }
-            QPushButton:disabled {
-                background: #cbd5e1;
-                color: #94a3b8;
-            }
-        """)
+        self.add_btn.setStyleSheet(
+            ProfessionalTheme.get_button_style('primary'))
         btn_layout.addWidget(self.add_btn)
 
         layout.addLayout(btn_layout)
@@ -1682,21 +1717,21 @@ class AddFundDialog(QDialog):
             self.status_label.setText("")
             self.add_btn.setEnabled(False)
         elif is_valid:
-            self.status_label.setText("✓ 基金代码格式正确")
-            self.status_label.setStyleSheet("""
-                QLabel {
-                    color: #10b981;
-                    font-size: 12px;
-                }
+            self.status_label.setText("[OK] 基金代码格式正确")
+            self.status_label.setStyleSheet(f"""
+                QLabel {{
+                    color: {ProfessionalTheme.SUCCESS_COLOR};
+                    font-size: {ProfessionalTheme.FONT_SIZE_CAPTION}px;
+                }}
             """)
             self.add_btn.setEnabled(True)
         else:
-            self.status_label.setText(f"✗ {error_msg}")
-            self.status_label.setStyleSheet("""
-                QLabel {
-                    color: #ef4444;
-                    font-size: 12px;
-                }
+            self.status_label.setText(f"[ERR] {error_msg}")
+            self.status_label.setStyleSheet(f"""
+                QLabel {{
+                    color: {ProfessionalTheme.ERROR_COLOR};
+                    font-size: {ProfessionalTheme.FONT_SIZE_CAPTION}px;
+                }}
             """)
             self.add_btn.setEnabled(False)
 
@@ -1890,17 +1925,17 @@ class FundHistoryChartWindow(QDialog):
             linestyle='-',
             linewidth=2,
             markersize=6,
-            color='#1f77b4')
+            color=ProfessionalTheme.PRIMARY_COLOR)
 
         for i in range(len(values)):
             if i == 0:
-                color = 'black'
+                color = ProfessionalTheme.TEXT_PRIMARY
             elif i > 0 and values[i] > values[i - 1]:
-                color = 'red'
+                color = ProfessionalTheme.RISE_COLOR
             elif i > 0 and values[i] < values[i - 1]:
-                color = 'green'
+                color = ProfessionalTheme.FALL_COLOR
             else:
-                color = 'gray'
+                color = ProfessionalTheme.FLAT_COLOR
             self.ax.scatter(i, values[i], color=color, s=30, zorder=5)
 
         self.ax.set_title(
@@ -1943,25 +1978,25 @@ class NotificationSettingsDialog(QDialog):
                 background: {ProfessionalTheme.BG_PRIMARY};
             }}
             QGroupBox {{
-                background: #FFFFFF;
+                background: {ProfessionalTheme.BG_PRIMARY};
                 color: {ProfessionalTheme.TEXT_PRIMARY};
-                border: 2px solid {ProfessionalTheme.BORDER_COLOR};
-                border-radius: 10px;
-                margin-top: 12px;
-                padding-top: 20px;
+                border: 1px solid {ProfessionalTheme.BORDER_LIGHT};
+                border-radius: {ProfessionalTheme.RADIUS_MEDIUM}px;
+                margin-top: {ProfessionalTheme.SPACING_MD}px;
+                padding-top: {ProfessionalTheme.SPACING_LG}px;
                 font-weight: bold;
-                font-size: 14px;
+                font-size: {ProfessionalTheme.FONT_SIZE_BODY}px;
             }}
             QGroupBox::title {{
                 subcontrol-origin: margin;
-                left: 16px;
-                padding: 0 6px;
-                background: #FFFFFF;
+                left: {ProfessionalTheme.SPACING_MD}px;
+                padding: 0 {ProfessionalTheme.SPACING_XS}px;
+                background: {ProfessionalTheme.BG_PRIMARY};
                 color: {ProfessionalTheme.TEXT_PRIMARY};
             }}
             QCheckBox {{
                 color: {ProfessionalTheme.TEXT_PRIMARY};
-                spacing: 8px;
+                spacing: {ProfessionalTheme.SPACING_SM}px;
             }}
             QLabel {{
                 color: {ProfessionalTheme.TEXT_SECONDARY};
@@ -1971,8 +2006,8 @@ class NotificationSettingsDialog(QDialog):
                 background: {ProfessionalTheme.BG_PRIMARY};
                 color: {ProfessionalTheme.TEXT_PRIMARY};
                 border: 1.5px solid {ProfessionalTheme.BORDER_COLOR};
-                border-radius: 6px;
-                padding: 6px 10px;
+                border-radius: {ProfessionalTheme.RADIUS_SMALL}px;
+                padding: {ProfessionalTheme.SPACING_XS}px {ProfessionalTheme.SPACING_SM}px;
             }}
             QLineEdit:focus {{
                 border-color: {ProfessionalTheme.PRIMARY_COLOR};
@@ -2077,36 +2112,14 @@ class NotificationSettingsDialog(QDialog):
 
         cancel_btn = QPushButton("取消")
         cancel_btn.clicked.connect(self.reject)
-        cancel_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: #f1f5f9;
-                color: {ProfessionalTheme.TEXT_SECONDARY};
-                border: none;
-                padding: 10px 20px;
-                border-radius: 6px;
-                font-size: 14px;
-            }}
-            QPushButton:hover {{
-                background: #e2e8f0;
-            }}
-        """)
+        cancel_btn.setStyleSheet(
+            ProfessionalTheme.get_button_style('default'))
         btn_layout.addWidget(cancel_btn)
 
         save_btn = QPushButton("保存")
         save_btn.clicked.connect(self.save_settings)
-        save_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: {ProfessionalTheme.PRIMARY_COLOR};
-                color: white;
-                border: none;
-                padding: 10px 20px;
-                border-radius: 6px;
-                font-size: 14px;
-            }}
-            QPushButton:hover {{
-                background: {ProfessionalTheme.PRIMARY_DARK};
-            }}
-        """)
+        save_btn.setStyleSheet(
+            ProfessionalTheme.get_button_style('primary'))
         btn_layout.addWidget(save_btn)
 
         layout.addLayout(btn_layout)

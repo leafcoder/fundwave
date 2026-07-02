@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (QDialog, QGridLayout, QGroupBox, QHBoxLayout,
                                QWidget)
 
 from services.fund_data_service import FundDataService, get_fund_data_service
+from ui.theme.professional_theme import ProfessionalTheme
 from utils.logger import logger
 
 matplotlib.use('Agg')
@@ -129,55 +130,52 @@ class FundDetailDialog(QDialog):
         self.fund_code = fund_code
         self.fund_name = fund_name
 
-        self.setWindowTitle(f"📊 基金详情 - {fund_name}({fund_code})")
+        self.setWindowTitle(f"基金详情 - {fund_name}({fund_code})")
         self.setMinimumSize(1200, 800)
-        self.setStyleSheet("""
-            QDialog {
-                background: #f8fafc;
-            }
-            QGroupBox {
-                background: white;
-                border-radius: 12px;
-                border: 1px solid #e2e8f0;
-                margin-top: 12px;
-                padding-top: 24px;
-                font-size: 14px;
+        self.setStyleSheet(f"""
+            QDialog {{
+                background: {ProfessionalTheme.BG_SECONDARY};
+            }}
+            QGroupBox {{
+                background: {ProfessionalTheme.BG_PRIMARY};
+                border-radius: {ProfessionalTheme.RADIUS_MEDIUM}px;
+                border: 1px solid {ProfessionalTheme.BORDER_LIGHT};
+                margin-top: {ProfessionalTheme.SPACING_MD}px;
+                padding-top: {ProfessionalTheme.SPACING_LG}px;
+                font-size: {ProfessionalTheme.FONT_SIZE_BODY}px;
                 font-weight: bold;
-                color: #1e293b;
-            }
-            QGroupBox::title {
+                color: {ProfessionalTheme.TEXT_PRIMARY};
+            }}
+            QGroupBox::title {{
                 subcontrol-origin: margin;
-                left: 16px;
-                padding: 0 8px;
-            }
-            QLabel {
-                color: #334155;
-            }
-            QTableWidget {
-                gridline-color: #e2e8f0;
-                background: white;
-                alternate-background-color: #f8fafc;
-            }
-            QTableWidget::item {
-                padding: 8px;
-            }
-            QHeaderView::section {
-                background: #f1f5f9;
-                color: #475569;
-                padding: 10px;
+                left: {ProfessionalTheme.SPACING_MD}px;
+                padding: 0 {ProfessionalTheme.SPACING_SM}px;
+            }}
+            QLabel {{
+                color: {ProfessionalTheme.TEXT_SECONDARY};
+            }}
+            QTableWidget {{
+                gridline-color: {ProfessionalTheme.BORDER_COLOR};
+                background: {ProfessionalTheme.BG_PRIMARY};
+                alternate-background-color: {ProfessionalTheme.BG_SECONDARY};
+            }}
+            QTableWidget::item {{
+                padding: {ProfessionalTheme.SPACING_SM}px;
+            }}
+            QHeaderView::section {{
+                background: {ProfessionalTheme.BG_TERTIARY};
+                color: {ProfessionalTheme.TEXT_SECONDARY};
+                padding: {ProfessionalTheme.SPACING_SM}px;
                 border: none;
-                border-bottom: 2px solid #e2e8f0;
+                border-bottom: 2px solid {ProfessionalTheme.BORDER_COLOR};
                 font-weight: bold;
-            }
-            QPushButton {
-                padding: 10px 20px;
-                border-radius: 6px;
+            }}
+            QPushButton {{
+                padding: {ProfessionalTheme.SPACING_SM}px {ProfessionalTheme.SPACING_LG}px;
+                border-radius: {ProfessionalTheme.RADIUS_SMALL}px;
                 font-weight: bold;
                 border: none;
-            }
-            QPushButton:hover {
-                opacity: 0.9;
-            }
+            }}
         """)
 
         self.detail_data = {}
@@ -194,37 +192,37 @@ class FundDetailDialog(QDialog):
 
         # 标题栏
         header_widget = QWidget()
-        header_widget.setStyleSheet("""
-            QWidget {
+        header_widget.setStyleSheet(f"""
+            QWidget {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #3b82f6, stop:1 #2563eb);
-                border-radius: 12px;
-            }
+                    stop:0 {ProfessionalTheme.PRIMARY_COLOR}, stop:1 {ProfessionalTheme.PRIMARY_LIGHT});
+                border-radius: {ProfessionalTheme.RADIUS_MEDIUM}px;
+            }}
         """)
         header_layout = QHBoxLayout(header_widget)
         header_layout.setContentsMargins(24, 16, 24, 16)
 
-        title_label = QLabel(f"📊 {self.fund_name} ({self.fund_code})")
-        title_label.setStyleSheet("""
-            QLabel {
+        title_label = QLabel(f"{self.fund_name} ({self.fund_code})")
+        title_label.setStyleSheet(f"""
+            QLabel {{
                 color: white;
-                font-size: 22px;
+                font-size: {ProfessionalTheme.FONT_SIZE_H2}px;
                 font-weight: bold;
-            }
+            }}
         """)
         header_layout.addWidget(title_label)
         header_layout.addStretch()
 
         # 数据来源标签
-        self.data_source_label = QLabel("📡 加载中...")
-        self.data_source_label.setStyleSheet("""
-            QLabel {
+        self.data_source_label = QLabel("加载中...")
+        self.data_source_label.setStyleSheet(f"""
+            QLabel {{
                 color: rgba(255, 255, 255, 0.9);
-                font-size: 13px;
-                padding: 4px 12px;
+                font-size: {ProfessionalTheme.FONT_SIZE_SMALL}px;
+                padding: {ProfessionalTheme.SPACING_XS}px {ProfessionalTheme.SPACING_SM}px;
                 background: rgba(255, 255, 255, 0.2);
-                border-radius: 4px;
-            }
+                border-radius: {ProfessionalTheme.RADIUS_SMALL}px;
+            }}
         """)
         header_layout.addWidget(self.data_source_label)
 
@@ -233,19 +231,19 @@ class FundDetailDialog(QDialog):
         # 进度条
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
-        self.progress_bar.setStyleSheet("""
-            QProgressBar {
+        self.progress_bar.setStyleSheet(f"""
+            QProgressBar {{
                 border: none;
-                background: #e2e8f0;
-                border-radius: 4px;
+                background: {ProfessionalTheme.BORDER_COLOR};
+                border-radius: {ProfessionalTheme.RADIUS_SMALL}px;
                 height: 6px;
                 text-align: center;
-            }
-            QProgressBar::chunk {
+            }}
+            QProgressBar::chunk {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #3b82f6, stop:1 #2563eb);
-                border-radius: 4px;
-            }
+                    stop:0 {ProfessionalTheme.PRIMARY_COLOR}, stop:1 {ProfessionalTheme.PRIMARY_LIGHT});
+                border-radius: {ProfessionalTheme.RADIUS_SMALL}px;
+            }}
         """)
         main_layout.addWidget(self.progress_bar)
 
@@ -259,22 +257,22 @@ class FundDetailDialog(QDialog):
         left_layout.setSpacing(16)
 
         # 基本信息卡片
-        info_group = QGroupBox("📋 基本信息")
+        info_group = QGroupBox("基本信息")
         info_grid = QGridLayout(info_group)
         info_grid.setSpacing(12)
 
         self.info_labels = {}
         basic_fields = [
-            ("基金全称", "full_name", "#1e293b"),
-            ("基金类型", "fund_type", "#3b82f6"),
-            ("基金规模", "scale", "#10b981"),
-            ("成立日期", "establish_date", "#f59e0b"),
-            ("基金经理", "manager", "#8b5cf6"),
-            ("管理费率", "fee_rate", "#ef4444"),
-            ("托管银行", "custodian", "#06b6d4"),
-            ("最新净值", "latest_nav", "#059669"),
-            ("估值涨跌", "estimated_change", "#dc2626"),
-            ("更新时间", "update_time", "#64748b"),
+            ("基金全称", "full_name", ProfessionalTheme.TEXT_PRIMARY),
+            ("基金类型", "fund_type", ProfessionalTheme.PRIMARY_COLOR),
+            ("基金规模", "scale", ProfessionalTheme.SUCCESS_COLOR),
+            ("成立日期", "establish_date", ProfessionalTheme.WARNING_COLOR),
+            ("基金经理", "manager", ProfessionalTheme.PRIMARY_DARK),
+            ("管理费率", "fee_rate", ProfessionalTheme.ERROR_COLOR),
+            ("托管银行", "custodian", ProfessionalTheme.INFO_COLOR),
+            ("最新净值", "latest_nav", ProfessionalTheme.SUCCESS_COLOR),
+            ("估值涨跌", "estimated_change", ProfessionalTheme.RISE_COLOR),
+            ("更新时间", "update_time", ProfessionalTheme.TEXT_TERTIARY),
         ]
 
         for row, (label_text, key, color) in enumerate(basic_fields):
@@ -283,7 +281,8 @@ class FundDetailDialog(QDialog):
             info_grid.addWidget(label, row, 0)
 
             value_label = QLabel("加载中...")
-            value_label.setStyleSheet("color: #334155; font-weight: bold;")
+            value_label.setStyleSheet(
+                f"color: {ProfessionalTheme.TEXT_PRIMARY}; font-weight: bold;")
             info_grid.addWidget(value_label, row, 1)
 
             self.info_labels[key] = value_label
@@ -291,7 +290,7 @@ class FundDetailDialog(QDialog):
         left_layout.addWidget(info_group)
 
         # 净值走势图
-        chart_group = QGroupBox("📈 净值走势")
+        chart_group = QGroupBox("净值走势")
         chart_layout = QVBoxLayout(chart_group)
 
         self.figure = Figure(figsize=(8, 4), dpi=100)
@@ -308,16 +307,16 @@ class FundDetailDialog(QDialog):
         right_layout.setSpacing(16)
 
         # 持仓概览
-        overview_group = QGroupBox("🎯 持仓概览")
+        overview_group = QGroupBox("持仓概览")
         overview_layout = QGridLayout(overview_group)
 
         self.overview_labels = {}
         overview_items = [
-            ("股票占比", "stock_percent", "#3b82f6"),
-            ("债券占比", "bond_percent", "#10b981"),
-            ("现金占比", "cash_percent", "#f59e0b"),
-            ("持有股票数", "stock_count", "#8b5cf6"),
-            ("集中度", "concentration", "#ef4444"),
+            ("股票占比", "stock_percent", ProfessionalTheme.PRIMARY_COLOR),
+            ("债券占比", "bond_percent", ProfessionalTheme.SUCCESS_COLOR),
+            ("现金占比", "cash_percent", ProfessionalTheme.WARNING_COLOR),
+            ("持有股票数", "stock_count", ProfessionalTheme.PRIMARY_DARK),
+            ("集中度", "concentration", ProfessionalTheme.ERROR_COLOR),
         ]
 
         for col, (label_text, key, color) in enumerate(overview_items):
@@ -327,7 +326,7 @@ class FundDetailDialog(QDialog):
 
             value_label = QLabel("--")
             value_label.setStyleSheet(
-                f"color: {color}; font-size: 18px; font-weight: bold;")
+                f"color: {color}; font-size: {ProfessionalTheme.FONT_SIZE_H4}px; font-weight: bold;")
             overview_layout.addWidget(value_label, 1, col)
 
             self.overview_labels[key] = value_label
@@ -335,7 +334,7 @@ class FundDetailDialog(QDialog):
         right_layout.addWidget(overview_group)
 
         # 持仓明细表格
-        holdings_group = QGroupBox("📊 股票持仓明细（前十大重仓股）")
+        holdings_group = QGroupBox("股票持仓明细（前十大重仓股）")
         holdings_layout = QVBoxLayout(holdings_group)
 
         self.holdings_table = QTableWidget()
@@ -370,15 +369,8 @@ class FundDetailDialog(QDialog):
         btn_layout.addStretch()
 
         close_btn = QPushButton("关闭")
-        close_btn.setStyleSheet("""
-            QPushButton {
-                background: #64748b;
-                color: white;
-            }
-            QPushButton:hover {
-                background: #475569;
-            }
-        """)
+        close_btn.setStyleSheet(
+            ProfessionalTheme.get_button_style('default'))
         close_btn.clicked.connect(self.accept)
         btn_layout.addWidget(close_btn)
 
@@ -431,13 +423,13 @@ class FundDetailDialog(QDialog):
 
         # 更新数据来源标签
         source_text = {
-            'real_api': '✅ 真实数据',
-            'fallback': '⚠️ 部分备用',
-            'empty': '⚠️ 无数据',
-            'failed': '❌ 获取失败',
-            'unknown': '❓ 未知来源'
-        }.get(data_source, '❓ 未知来源')
-        self.data_source_label.setText(f"📡 {source_text}")
+            'real_api': '真实数据',
+            'fallback': '部分备用',
+            'empty': '无数据',
+            'failed': '获取失败',
+            'unknown': '未知来源'
+        }.get(data_source, '未知来源')
+        self.data_source_label.setText(source_text)
 
         logger.info(f"基金{self.fund_code}详情加载完成 (数据源: {data_source})")
 
@@ -498,7 +490,7 @@ class FundDetailDialog(QDialog):
 
             percent_item = QTableWidgetItem(f"{percent:.2f}%")
             percent_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            percent_item.setForeground(Qt.darkGreen)
+            percent_item.setForeground(QColor(ProfessionalTheme.SUCCESS_COLOR))
             self.holdings_table.setItem(row_idx, 3, percent_item)
 
             # 持仓市值
@@ -535,29 +527,29 @@ class FundDetailDialog(QDialog):
         metrics_to_update = [
             ('annualized_return_label',
              f"{risk_metrics['annualized_return']*100:.2f}%",
-             '#10b981'),
+             ProfessionalTheme.SUCCESS_COLOR),
             ('volatility_label',
              f"{risk_metrics['volatility']*100:.2f}%",
-             '#f59e0b'),
+             ProfessionalTheme.WARNING_COLOR),
             ('sharpe_ratio_label',
              f"{risk_metrics['sharpe_ratio']:.2f}",
-             '#3b82f6' if risk_metrics['sharpe_ratio'] > 1 else '#ef4444'),
+             ProfessionalTheme.PRIMARY_COLOR if risk_metrics['sharpe_ratio'] > 1 else ProfessionalTheme.ERROR_COLOR),
             ('max_drawdown_label',
              f"{risk_metrics['max_drawdown']*100:.2f}%",
-             '#ef4444'),
+             ProfessionalTheme.ERROR_COLOR),
             ('calmar_ratio_label',
              f"{risk_metrics['calmar_ratio']:.2f}",
-             '#8b5cf6'),
+             ProfessionalTheme.PRIMARY_DARK),
             ('win_rate_label',
              f"{risk_metrics['win_rate']*100:.1f}%",
-             '#059669'),
+             ProfessionalTheme.SUCCESS_COLOR),
         ]
 
         for label_key, value, color in metrics_to_update:
             if hasattr(self, label_key):
                 getattr(self, label_key).setText(value)
                 getattr(self, label_key).setStyleSheet(
-                    f"color: {color}; font-size: 16px; font-weight: bold;")
+                    f"color: {color}; font-size: {ProfessionalTheme.FONT_SIZE_H4}px; font-weight: bold;")
 
         logger.info(
             f"风险指标已更新: Sharpe={risk_metrics['sharpe_ratio']:.2f}, MaxDD={risk_metrics['max_drawdown']:.2%}")
@@ -581,7 +573,7 @@ class FundDetailDialog(QDialog):
 
             name_item = QTableWidgetItem(peer.get('name', ''))
             if peer.get('is_current'):
-                name_item.setForeground(Qt.blue)
+                name_item.setForeground(QColor(ProfessionalTheme.PRIMARY_COLOR))
                 name_item.setFont(name_item.font().bold())
             self.peer_table.setItem(row_idx, 2, name_item)
 
@@ -591,12 +583,12 @@ class FundDetailDialog(QDialog):
             ret_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
             if peer.get('is_current'):
-                ret_item.setBackground(QColor(230, 240, 255))
-                ret_item.setForeground(Qt.blue)
+                ret_item.setBackground(QColor(ProfessionalTheme.PRIMARY_BG))
+                ret_item.setForeground(QColor(ProfessionalTheme.PRIMARY_COLOR))
             elif ret_1y > 0:
-                ret_item.setForeground(Qt.darkGreen)
+                ret_item.setForeground(QColor(ProfessionalTheme.RISE_COLOR))
             else:
-                ret_item.setForeground(Qt.red)
+                ret_item.setForeground(QColor(ProfessionalTheme.FALL_COLOR))
 
             self.peer_table.setItem(row_idx, 3, ret_item)
 
@@ -613,8 +605,10 @@ class FundDetailDialog(QDialog):
         dates = [item['date'] for item in nav_history]
         values = [item['nav'] for item in nav_history]
 
-        ax.plot(dates, values, 'b-', linewidth=1.5, label='单位净值')
-        ax.fill_between(dates, values, alpha=0.3)
+        ax.plot(dates, values, '-', color=ProfessionalTheme.PRIMARY_COLOR,
+                linewidth=1.5, label='单位净值')
+        ax.fill_between(dates, values, alpha=0.15,
+                        color=ProfessionalTheme.PRIMARY_COLOR)
 
         ax.set_title('历史净值走势', fontsize=14, fontweight='bold', pad=10)
         ax.set_xlabel('日期', fontsize=10)

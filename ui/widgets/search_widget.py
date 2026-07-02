@@ -101,7 +101,7 @@ class FundSearchWidget(QWidget):
 
         # 标题
         title_layout = QHBoxLayout()
-        search_label = QLabel("🔍 基金搜索")
+        search_label = QLabel("[S] 基金搜索")
         search_label.setStyleSheet(f"""
             QLabel {{
                 color: {ProfessionalTheme.TEXT_PRIMARY};
@@ -189,7 +189,7 @@ class FundSearchWidget(QWidget):
         search_layout.addLayout(filter_layout)
 
         # 热门基金推荐
-        hot_label = QLabel("🔥 热门基金")
+        hot_label = QLabel("[*] 热门基金")
         hot_label.setStyleSheet(f"""
             QLabel {{
                 color: {ProfessionalTheme.TEXT_PRIMARY};
@@ -227,7 +227,7 @@ class FundSearchWidget(QWidget):
         search_layout.addLayout(hot_layout)
 
         # 搜索结果表格
-        result_label = QLabel("📋 搜索结果")
+        result_label = QLabel("[+] 搜索结果")
         result_label.setStyleSheet(f"""
             QLabel {{
                 color: {ProfessionalTheme.TEXT_PRIMARY};
@@ -285,7 +285,7 @@ class FundSearchWidget(QWidget):
         search_layout.addWidget(self.result_table)
 
         # 添加按钮
-        self.add_button = QPushButton('✓ 添加到监控')
+        self.add_button = QPushButton("+ 添加到监控")
         self.add_button.clicked.connect(self.emit_selected_fund)
         self.add_button.setStyleSheet(f"""
             QPushButton {{

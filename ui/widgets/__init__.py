@@ -6,6 +6,7 @@ UI组件模块
 """
 
 from ui.widgets.dividend_history_dialog import DividendHistoryDialog
+from ui.widgets.floating_profit_widget import FloatingProfitWidget
 from ui.widgets.fund_detail_dialog import FundDetailDialog
 from ui.widgets.search_widget import FundSearchWidget
 from ui.widgets.table_widget import (FundTableWidget, NumericItem,
@@ -13,6 +14,6 @@ from ui.widgets.table_widget import (FundTableWidget, NumericItem,
 
 __all__ = [
     'FundTableWidget', 'PercentageItem', 'NumericItem',
-    'FundSearchWidget',
+    'FundSearchWidget', 'FloatingProfitWidget',
     'DividendHistoryDialog', 'FundDetailDialog'
 ]

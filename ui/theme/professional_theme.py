@@ -29,6 +29,19 @@ class ProfessionalTheme:
     ERROR_LIGHT = "#FFECE8"          # 错误背景
     INFO_COLOR = "#1677FF"           # 信息（蓝色）
 
+    # 金融涨跌配色（中国惯例：红涨绿跌）
+    RISE_COLOR = "#F53F3F"           # 涨 - 红色
+    FALL_COLOR = "#00B42A"           # 跌 - 绿色
+    FLAT_COLOR = "#86909C"           # 平 - 灰色
+    RISE_LIGHT = "#FFF1F0"           # 涨背景
+    FALL_LIGHT = "#F6FFED"           # 跌背景
+
+    # 按钮交互态颜色
+    SUCCESS_HOVER = "#00A870"
+    SUCCESS_PRESSED = "#00996B"
+    ERROR_HOVER = "#CB2630"
+    ERROR_PRESSED = "#B91C1C"
+
     # 中性色彩（文本和边框）
     TEXT_PRIMARY = "#1D2129"         # 主文本（标题、重要数据）
     TEXT_SECONDARY = "#4E5969"       # 次要文本（说明、标签）
@@ -105,21 +118,28 @@ class ProfessionalTheme:
     # ==================== 组件样式模板 ====================
 
     @classmethod
+    def get_card_container_style(cls) -> str:
+        """获取卡片容器样式（白色背景+圆角，无边框）"""
+        return f"""
+            background: {cls.BG_PRIMARY};
+            border: none;
+            border-radius: {cls.RADIUS_LARGE}px;
+        """
+
+    @classmethod
     def get_card_style(cls, hoverable: bool = False) -> str:
         """获取卡片样式"""
         base_style = f"""
             background: {cls.BG_PRIMARY};
-            border: 1px solid {cls.BORDER_LIGHT};
+            border: none;
             border-radius: {cls.RADIUS_MEDIUM}px;
             padding: {cls.SPACING_LG}px;
         """
 
         if hoverable:
             base_style += f"""
-            """
-            base_style += f"""
                 QWidget:hover {{
-                    border-color: {cls.PRIMARY_LIGHT};
+                    background: {cls.BG_HOVER};
                 }}
             """
 
@@ -162,8 +182,8 @@ class ProfessionalTheme:
                     padding: {cls.SPACING_SM}px {cls.SPACING_MD}px;
                     font-weight: {cls.FONT_WEIGHT_MEDIUM};
                 }}
-                QPushButton:hover {{ background: #00A870; }}
-                QPushButton:pressed {{ background: #00996B; }}
+                QPushButton:hover {{ background: {cls.SUCCESS_HOVER}; }}
+                QPushButton:pressed {{ background: {cls.SUCCESS_PRESSED}; }}
             """,
 
             "danger": f"""
@@ -175,8 +195,8 @@ class ProfessionalTheme:
                     padding: {cls.SPACING_SM}px {cls.SPACING_MD}px;
                     font-weight: {cls.FONT_WEIGHT_MEDIUM};
                 }}
-                QPushButton:hover {{ background: #CB2630; }}
-                QPushButton:pressed {{ background: #B91C1C; }}
+                QPushButton:hover {{ background: {cls.ERROR_HOVER}; }}
+                QPushButton:pressed {{ background: {cls.ERROR_PRESSED}; }}
             """,
 
             "ghost": f"""
@@ -288,17 +308,17 @@ class ProfessionalTheme:
         return f"""
             QGroupBox {{
                 background: {cls.BG_PRIMARY};
-                border: 2px solid {cls.BORDER_LIGHT};
-                border-radius: {cls.RADIUS_LARGE}px;
-                margin-top: {cls.SPACING_LG}px;
-                padding-top: {cls.SPACING_XL + 4}px;
+                border: 1px solid {cls.BORDER_LIGHT};
+                border-radius: {cls.RADIUS_MEDIUM}px;
+                margin-top: {cls.SPACING_MD}px;
+                padding-top: {cls.SPACING_LG}px;
                 font-weight: {cls.FONT_WEIGHT_SEMI_BOLD};
-                font-size: {cls.FONT_SIZE_H4}px;
+                font-size: {cls.FONT_SIZE_SMALL}px;
                 color: {cls.TEXT_PRIMARY};
             }}
             QGroupBox::title {{
                 subcontrol-origin: margin;
-                left: {cls.SPACING_LG}px;
+                left: {cls.SPACING_MD}px;
                 padding: 0 {cls.SPACING_SM}px;
                 background: {cls.BG_PRIMARY};
                 color: {cls.TEXT_PRIMARY};

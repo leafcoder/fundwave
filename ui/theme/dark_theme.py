@@ -29,6 +29,19 @@ class DarkTheme:
     ERROR_LIGHT = "#7F1D1D"          # 错误背景
     INFO_COLOR = "#60A5FA"           # 信息（蓝色）
 
+    # 金融涨跌配色（中国惯例：红涨绿跌 - 暗色优化）
+    RISE_COLOR = "#F87171"           # 涨 - 柔和红色
+    FALL_COLOR = "#34D399"           # 跌 - 柔和绿色
+    FLAT_COLOR = "#64748B"           # 平 - 灰色
+    RISE_LIGHT = "#7F1D1D"           # 涨背景
+    FALL_LIGHT = "#064E3B"           # 跌背景
+
+    # 按钮交互态颜色
+    SUCCESS_HOVER = "#10B981"
+    SUCCESS_PRESSED = "#059669"
+    ERROR_HOVER = "#EF4444"
+    ERROR_PRESSED = "#DC2626"
+
     # 中性色彩（文本和边框 - 高对比度）
     TEXT_PRIMARY = "#F1F5F9"         # 主文本（标题、重要数据）- 近白
     TEXT_SECONDARY = "#94A3B8"       # 次要文本（说明、标签）
@@ -106,6 +119,15 @@ class DarkTheme:
     # ==================== 组件样式模板 ====================
 
     @classmethod
+    def get_card_container_style(cls) -> str:
+        """获取卡片容器样式（深色背景+圆角，无边框）"""
+        return f"""
+            background: {cls.BG_SECONDARY};
+            border: none;
+            border-radius: {cls.RADIUS_LARGE}px;
+        """
+
+    @classmethod
     def get_card_style(cls, hoverable: bool = False) -> str:
         """获取卡片样式"""
         base_style = f"""
@@ -162,9 +184,9 @@ class DarkTheme:
                     font-weight: {cls.FONT_WEIGHT_MEDIUM};
                 }}
                 QPushButton:hover {{
-                    background: #10B981;
+                    background: {cls.SUCCESS_HOVER};
                 }}
-                QPushButton:pressed {{ background: #059669; }}
+                QPushButton:pressed {{ background: {cls.SUCCESS_PRESSED}; }}
             """,
 
             "danger": f"""
@@ -177,9 +199,9 @@ class DarkTheme:
                     font-weight: {cls.FONT_WEIGHT_MEDIUM};
                 }}
                 QPushButton:hover {{
-                    background: #EF4444;
+                    background: {cls.ERROR_HOVER};
                 }}
-                QPushButton:pressed {{ background: #DC2626; }}
+                QPushButton:pressed {{ background: {cls.ERROR_PRESSED}; }}
             """,
 
             "ghost": f"""
@@ -292,17 +314,17 @@ class DarkTheme:
         return f"""
             QGroupBox {{
                 background: {cls.BG_SECONDARY};
-                border: 2px solid {cls.BORDER_COLOR};
-                border-radius: {cls.RADIUS_LARGE}px;
-                margin-top: {cls.SPACING_LG}px;
-                padding-top: {cls.SPACING_XL + 4}px;
+                border: 1px solid {cls.BORDER_COLOR};
+                border-radius: {cls.RADIUS_MEDIUM}px;
+                margin-top: {cls.SPACING_MD}px;
+                padding-top: {cls.SPACING_LG}px;
                 font-weight: {cls.FONT_WEIGHT_SEMI_BOLD};
-                font-size: {cls.FONT_SIZE_H4}px;
+                font-size: {cls.FONT_SIZE_SMALL}px;
                 color: {cls.TEXT_PRIMARY};
             }}
             QGroupBox::title {{
                 subcontrol-origin: margin;
-                left: {cls.SPACING_LG}px;
+                left: {cls.SPACING_MD}px;
                 padding: 0 {cls.SPACING_SM}px;
                 background: {cls.BG_SECONDARY};
                 color: {cls.TEXT_PRIMARY};

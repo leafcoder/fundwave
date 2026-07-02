@@ -8,11 +8,13 @@
 from datetime import datetime
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (QDialog, QGridLayout, QGroupBox, QHBoxLayout,
                                QHeaderView, QLabel, QMainWindow, QMessageBox,
                                QPushButton, QTableWidget, QTableWidgetItem,
                                QVBoxLayout)
 
+from ui.theme.professional_theme import ProfessionalTheme
 from utils.logger import logger
 
 
@@ -27,62 +29,59 @@ class DividendHistoryDialog(QDialog):
 
         self.setWindowTitle(f"分红记录 - {fund_name}({fund_code})")
         self.setFixedSize(800, 600)
-        self.setStyleSheet("""
-            QDialog {
-                background: #f8fafc;
-            }
-            QGroupBox {
+        self.setStyleSheet(f"""
+            QDialog {{
+                background: {ProfessionalTheme.BG_SECONDARY};
+            }}
+            QGroupBox {{
                 font-weight: bold;
-                border: 1px solid #e2e8f0;
-                border-radius: 8px;
-                margin-top: 12px;
-                padding-top: 10px;
-                background: white;
-            }
-            QGroupBox::title {
+                border: 1px solid {ProfessionalTheme.BORDER_LIGHT};
+                border-radius: {ProfessionalTheme.RADIUS_SMALL}px;
+                margin-top: {ProfessionalTheme.SPACING_MD}px;
+                padding-top: {ProfessionalTheme.SPACING_SM}px;
+                background: {ProfessionalTheme.BG_PRIMARY};
+            }}
+            QGroupBox::title {{
                 subcontrol-origin: margin;
-                left: 15px;
-                padding: 0 8px;
-                color: #1e293b;
-            }
-            QTableWidget {
-                gridline-color: #e2e8f0;
-                background: white;
-                alternate-background-color: #f8fafc;
-                selection-background-color: #dbeafe;
-            }
-            QTableWidget::item {
-                padding: 8px;
-            }
-            QHeaderView::section {
-                background: #f1f5f9;
-                color: #475569;
-                padding: 10px;
+                left: {ProfessionalTheme.SPACING_MD}px;
+                padding: 0 {ProfessionalTheme.SPACING_SM}px;
+                color: {ProfessionalTheme.TEXT_PRIMARY};
+            }}
+            QTableWidget {{
+                gridline-color: {ProfessionalTheme.BORDER_COLOR};
+                background: {ProfessionalTheme.BG_PRIMARY};
+                alternate-background-color: {ProfessionalTheme.BG_SECONDARY};
+                selection-background-color: {ProfessionalTheme.PRIMARY_BG};
+            }}
+            QTableWidget::item {{
+                padding: {ProfessionalTheme.SPACING_SM}px;
+            }}
+            QHeaderView::section {{
+                background: {ProfessionalTheme.BG_TERTIARY};
+                color: {ProfessionalTheme.TEXT_SECONDARY};
+                padding: {ProfessionalTheme.SPACING_SM}px;
                 border: none;
-                border-bottom: 2px solid #e2e8f0;
+                border-bottom: 2px solid {ProfessionalTheme.BORDER_COLOR};
                 font-weight: bold;
-            }
-            QPushButton {
-                padding: 10px 20px;
-                border-radius: 6px;
+            }}
+            QPushButton {{
+                padding: {ProfessionalTheme.SPACING_SM}px {ProfessionalTheme.SPACING_LG}px;
+                border-radius: {ProfessionalTheme.RADIUS_SMALL}px;
                 font-weight: bold;
                 border: none;
-            }
-            QPushButton:hover {
-                opacity: 0.9;
-            }
-            QLabel {
-                color: #334155;
-            }
-            QLineEdit {
-                padding: 8px;
-                border: 1px solid #cbd5e1;
-                border-radius: 6px;
-                background: white;
-            }
-            QLineEdit:focus {
-                border-color: #3b82f6;
-            }
+            }}
+            QLabel {{
+                color: {ProfessionalTheme.TEXT_SECONDARY};
+            }}
+            QLineEdit {{
+                padding: {ProfessionalTheme.SPACING_SM}px;
+                border: 1px solid {ProfessionalTheme.BORDER_COLOR};
+                border-radius: {ProfessionalTheme.RADIUS_SMALL}px;
+                background: {ProfessionalTheme.BG_PRIMARY};
+            }}
+            QLineEdit:focus {{
+                border-color: {ProfessionalTheme.PRIMARY_COLOR};
+            }}
         """)
 
         self.setup_ui()
@@ -94,13 +93,13 @@ class DividendHistoryDialog(QDialog):
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
 
-        title_label = QLabel(f"📊 {self.fund_name} ({self.fund_code}) - 分红历史")
-        title_label.setStyleSheet("""
-            QLabel {
-                color: #1e293b;
-                font-size: 20px;
+        title_label = QLabel(f"{self.fund_name} ({self.fund_code}) - 分红历史")
+        title_label.setStyleSheet(f"""
+            QLabel {{
+                color: {ProfessionalTheme.TEXT_PRIMARY};
+                font-size: {ProfessionalTheme.FONT_SIZE_H3}px;
                 font-weight: bold;
-            }
+            }}
         """)
         layout.addWidget(title_label)
 
@@ -109,17 +108,20 @@ class DividendHistoryDialog(QDialog):
 
         summary_layout.addWidget(QLabel("分红次数:"), 0, 0)
         self.count_label = QLabel("0")
-        self.count_label.setStyleSheet("font-weight: bold; color: #3b82f6;")
+        self.count_label.setStyleSheet(
+            f"font-weight: bold; color: {ProfessionalTheme.PRIMARY_COLOR};")
         summary_layout.addWidget(self.count_label, 0, 1)
 
         summary_layout.addWidget(QLabel("分红总额:"), 0, 2)
         self.total_label = QLabel("¥0.00")
-        self.total_label.setStyleSheet("font-weight: bold; color: #10b981;")
+        self.total_label.setStyleSheet(
+            f"font-weight: bold; color: {ProfessionalTheme.SUCCESS_COLOR};")
         summary_layout.addWidget(self.total_label, 0, 3)
 
         summary_layout.addWidget(QLabel("最近分红:"), 1, 0)
         self.latest_label = QLabel("-")
-        self.latest_label.setStyleSheet("color: #64748b;")
+        self.latest_label.setStyleSheet(
+            f"color: {ProfessionalTheme.TEXT_TERTIARY};")
         summary_layout.addWidget(self.latest_label, 1, 1, 1, 3)
 
         summary_group.setLayout(summary_layout)
@@ -154,44 +156,23 @@ class DividendHistoryDialog(QDialog):
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(8)
 
-        add_btn = QPushButton("+ 添加分红")
-        add_btn.setStyleSheet("""
-            QPushButton {
-                background: #3b82f6;
-                color: white;
-            }
-            QPushButton:hover {
-                background: #2563eb;
-            }
-        """)
+        add_btn = QPushButton("添加分红")
+        add_btn.setStyleSheet(
+            ProfessionalTheme.get_button_style('primary'))
         add_btn.clicked.connect(self.add_dividend)
         btn_layout.addWidget(add_btn)
 
-        delete_btn = QPushButton("- 删除选中")
-        delete_btn.setStyleSheet("""
-            QPushButton {
-                background: #ef4444;
-                color: white;
-            }
-            QPushButton:hover {
-                background: #dc2626;
-            }
-        """)
+        delete_btn = QPushButton("删除选中")
+        delete_btn.setStyleSheet(
+            ProfessionalTheme.get_button_style('danger'))
         delete_btn.clicked.connect(self.delete_selected)
         btn_layout.addWidget(delete_btn)
 
         btn_layout.addStretch()
 
         close_btn = QPushButton("关闭")
-        close_btn.setStyleSheet("""
-            QPushButton {
-                background: #64748b;
-                color: white;
-            }
-            QPushButton:hover {
-                background: #475569;
-            }
-        """)
+        close_btn.setStyleSheet(
+            ProfessionalTheme.get_button_style('default'))
         close_btn.clicked.connect(self.accept)
         btn_layout.addWidget(close_btn)
 
@@ -241,7 +222,7 @@ class DividendHistoryDialog(QDialog):
 
                     amount_item = QTableWidgetItem(f"¥{amount:.2f}")
                     amount_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-                    amount_item.setForeground(Qt.darkGreen)
+                    amount_item.setForeground(QColor(ProfessionalTheme.SUCCESS_COLOR))
                     self.table_widget.setItem(row_idx, 1, amount_item)
 
                     date_item = QTableWidgetItem(str(date))
